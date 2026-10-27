@@ -50,6 +50,22 @@ jobs:
           path: TelegramPhotos.ipa
           retention-days: 14
           if-no-files-found: error
+  ios-tests:
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select newest stable Xcode
+        run: |
+          XCODE=$(ls -d /Applications/Xcode*.app | grep -vi beta | sort -V | tail -1)
+          sudo xcode-select -s "$XCODE"
+      - name: Generate project
+        run: brew install xcodegen && xcodegen generate
+      - name: Test on simulator
+        run: |
+          SIM=$(xcrun simctl list devices available | grep -oE 'iPhone [0-9]+( Pro)?' | head -1)
+          echo "Using simulator: $SIM"
+          xcodebuild test -project TelegramPhotos.xcodeproj -scheme TelegramPhotos \
+            -destination "platform=iOS Simulator,name=$SIM" CODE_SIGN_IDENTITY=-
   publish:
     needs: [core-tests, ios-build]
     runs-on: ubuntu-latest
