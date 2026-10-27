@@ -18,6 +18,9 @@ packages:
   GRDB:
     url: https://github.com/groue/GRDB.swift
     exactVersion: 7.11.1
+  TDLibKit:
+    url: https://github.com/Swiftgram/TDLibKit
+    exactVersion: 1.5.2-tdlib-1.8.69-ea3f69ce
 targets:
   TelegramPhotos:
     type: application
@@ -27,6 +30,8 @@ targets:
       - package: SyncCore
       - package: GRDB
         product: GRDB
+      - package: TDLibKit
+        product: TDLibKit
       - target: TelegramPhotosWidgets
     info:
       path: App/Info.plist
