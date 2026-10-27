@@ -159,6 +159,8 @@ final class GRDBStateStore: StateStore {
 enum StateStoreError: Error {
     /// A stored row has a value this version doesn't understand.
     case unreadableRow
+    /// The database could not be opened, so nothing can be read or written.
+    case unavailable
 }
 
 extension UploadUnit {

@@ -14,10 +14,18 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
 @main
 struct TelegramPhotosApp: App {
     @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    @Environment(\.scenePhase) private var scenePhase
+    @State private var didStartLaunchSync = false
 
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .environment(AppModel.shared)
+        }
+        .onChange(of: scenePhase, initial: true) { _, phase in
+            guard phase == .active, !didStartLaunchSync else { return }
+            didStartLaunchSync = true
+            Task { await SyncCoordinator.shared.syncOnLaunch() }
         }
     }
 }

@@ -358,8 +358,8 @@ extension ChatMemberStatus {
 // MARK: - Chats and destination
 
 extension TelegramService {
-    static let destinationChatIdKey = "destinationChatId"
-    static let destinationTitleKey = "destinationTitle"
+    nonisolated static let destinationChatIdKey = "destinationChatId"
+    nonisolated static let destinationTitleKey = "destinationTitle"
     static let backupChannelTitle = "📷 iPhone Backup"
     private static let savedMessagesTitle = "Saved Messages"
 
