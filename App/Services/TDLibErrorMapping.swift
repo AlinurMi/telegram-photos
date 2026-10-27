@@ -1,5 +1,6 @@
 /// A Telegram request failed. `message` is short, plain and safe to show to the owner.
 import Foundation
+import SyncCore
 
 /// Turns TDLib error codes into plain messages for the owner.
 ///
@@ -33,6 +34,61 @@ enum TDLibErrorMapping {
             return "Telegram isn't available right now. Try again in a moment."
         default:
             return "Telegram error: \(message)"
+        }
+    }
+
+    /// Sorts a failed send or search into the category that decides how the engine retries it.
+    static func uploadError(code: Int, message: String) -> UploadError {
+        let text = message.uppercased()
+        let description = "telegram \(code): \(message)"
+        if code == 429 || text.contains("TOO MANY REQUESTS") || text.contains("FLOOD_WAIT") {
+            return UploadError(
+                kind: .rateLimited(retryAfterSeconds: retryAfterSeconds(in: message)), message: description)
+        }
+        if code == 401 || text.contains("AUTH_KEY_UNREGISTERED") || text.contains("SESSION_REVOKED") {
+            return UploadError(kind: .authLost, message: description)
+        }
+        if text.contains("FILE_PARTS_INVALID") || (code == 400 && text.contains("FILE")) {
+            return UploadError(kind: .permanent, message: description)
+        }
+        return UploadError(kind: .transient, message: description)
+    }
+
+    /// The wait Telegram asked for ("retry after 5", "FLOOD_WAIT_30"), or 30 seconds if it gave no number.
+    private static func retryAfterSeconds(in message: String) -> Int {
+        let digits = message.split(whereSeparator: { !$0.isASCII || !$0.isNumber }).first
+        return digits.flatMap { Int($0) } ?? 30
+    }
+}
+
+/// What the account is in a chat, without TDLibKit types.
+enum ChatMemberRole: Equatable {
+    case creator
+    case administrator(canPostMessages: Bool)
+    case member
+    case restricted(isMember: Bool, canSendDocuments: Bool)
+    case left
+    case banned
+}
+
+/// Decides which chats can receive the backup.
+enum ChatWriteAccess {
+    /// - Parameters:
+    ///   - isChannel: A broadcast channel, where only admins post.
+    ///   - role: What the account is in the chat.
+    ///   - membersCanSendDocuments: The chat's default permission for ordinary members.
+    static func canSend(isChannel: Bool, role: ChatMemberRole, membersCanSendDocuments: Bool) -> Bool {
+        switch role {
+        case .creator:
+            return true
+        case .administrator(let canPostMessages):
+            return !isChannel || canPostMessages
+        case .member:
+            return !isChannel && membersCanSendDocuments
+        case .restricted(let isMember, let canSendDocuments):
+            return !isChannel && isMember && canSendDocuments
+        case .left, .banned:
+            return false
         }
     }
 }
