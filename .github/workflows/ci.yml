@@ -65,7 +65,7 @@ jobs:
           SIM=$(xcrun simctl list devices available | grep -oE 'iPhone [0-9]+( Pro)?' | head -1)
           echo "Using simulator: $SIM"
           xcodebuild test -project TelegramPhotos.xcodeproj -scheme TelegramPhotos \
-            -destination "platform=iOS Simulator,name=$SIM" CODE_SIGNING_ALLOWED=NO
+            -destination "platform=iOS Simulator,name=$SIM" CODE_SIGN_IDENTITY=-
   publish:
     needs: [core-tests, ios-build]
     runs-on: ubuntu-latest
