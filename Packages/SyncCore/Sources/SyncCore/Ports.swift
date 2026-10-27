@@ -101,6 +101,7 @@ public protocol Clock: Sendable {
 }
 public enum SyncEvent: Sendable, Equatable {
     case runStarted(total: Int, totalBytes: Int64)
+    // `index` counts from zero.
     case unitStarted(index: Int, total: Int, fileName: String, bytes: Int64?)
     case unitProgress(sent: Int64, total: Int64)
     case unitFinished(index: Int, total: Int, status: UnitStatus)
