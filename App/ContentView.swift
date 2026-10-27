@@ -1,5 +1,4 @@
 import SwiftUI
-
 import SyncCore
 
 struct ContentView: View {
@@ -8,13 +7,17 @@ struct ContentView: View {
     }
 
     var body: some View {
-        VStack(spacing: 8) {
-            Text("TelegramPhotos \(appVersion)")
-                .font(.title2)
-            Text("SyncCore \(SyncCoreInfo.version)")
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+        NavigationStack {
+            VStack(spacing: 8) {
+                Text("TelegramPhotos \(appVersion)")
+                    .font(.title2)
+                Text("SyncCore \(SyncCoreInfo.version)")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                NavigationLink("Debug screen") { SpikeView() }
+                    .padding(.top, 16)
+            }
+            .padding()
         }
-        .padding()
     }
 }
