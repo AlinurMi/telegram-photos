@@ -88,6 +88,48 @@ public actor SyncEngine {
         return await finish(request, startedAt: startedAt, tally: tally)
     }
 
+    /// Marks every unit whose caption is found in the channel as `done` (without a message id); returns how many changed.
+    /// The channel is read completely before anything is changed, so a failure leaves the state untouched.
+    public func rebuildFromChannel(settings: SyncSettings = SyncSettings()) async throws -> Int {
+        _ = try await discover(settings: settings)
+        var uploaded: Set<ChannelEntry> = []
+        for try await caption in uploader.allDocumentCaptions() {
+            if let parsed = ChannelIndexParser.parse(caption: caption) {
+                uploaded.insert(ChannelEntry(assetTag: parsed.assetTag, role: parsed.role))
+            }
+        }
+
+        var changed = 0
+        for var unit in try await store.allUnits() where unit.status != .done {
+            guard uploaded.contains(ChannelEntry(assetTag: unit.assetTag, role: unit.role)) else { continue }
+            unit.status = .done
+            unit.skipReason = nil
+            unit.lastError = nil
+            unit.nextAttemptAt = nil
+            try await store.update(unit)
+            changed += 1
+        }
+        return changed
+    }
+
+    /// Puts every `failed` unit back to `pending` with a fresh retry budget; returns how many were reset.
+    public func retryFailed() async throws -> Int {
+        var changed = 0
+        for var unit in try await store.allUnits() where unit.status == .failed {
+            unit.status = .pending
+            unit.attempts = 0
+            unit.nextAttemptAt = nil
+            try await store.update(unit)
+            changed += 1
+        }
+        return changed
+    }
+
+    private struct ChannelEntry: Hashable {
+        var assetTag: String
+        var role: UnitRole
+    }
+
     private static let noLibraryAccessMessage = "noLibraryAccess"
     private static let minimumFreeDiskMargin: Int64 = 200 * 1024 * 1024
     private static let deadlineMargin: TimeInterval = 5
