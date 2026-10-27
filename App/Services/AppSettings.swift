@@ -1,0 +1,71 @@
+import Foundation
+
+/// The owner's choices, kept in `UserDefaults`. Nothing in here is secret.
+///
+/// The destination chat is written by `TelegramService.setDestination`; this type reads and writes the same keys.
+import SyncCore
+
+final class AppSettings: @unchecked Sendable {
+    static let shared = AppSettings()
+
+    static let includeScreenshotsKey = "includeScreenshots"
+    static let resendEditsKey = "resendEdits"
+    static let setupCompletedKey = "setupCompleted"
+
+    private let defaults: UserDefaults
+
+    /// - Parameter defaults: Where the values live. Tests pass their own suite.
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+    }
+
+    /// Whether screenshots and screen recordings are uploaded. On by default.
+    var includeScreenshots: Bool {
+        get { defaults.object(forKey: Self.includeScreenshotsKey) as? Bool ?? true }
+        set { defaults.set(newValue, forKey: Self.includeScreenshotsKey) }
+    }
+
+    /// Whether an edited photo is uploaded again. Off by default.
+    var resendEdits: Bool {
+        get { defaults.bool(forKey: Self.resendEditsKey) }
+        set { defaults.set(newValue, forKey: Self.resendEditsKey) }
+    }
+
+    /// Whether the owner finished the setup flow.
+    var setupCompleted: Bool {
+        get { defaults.bool(forKey: Self.setupCompletedKey) }
+        set { defaults.set(newValue, forKey: Self.setupCompletedKey) }
+    }
+
+    /// The chat the backup goes to, if one was chosen.
+    var destinationChatId: Int64? {
+        get {
+            let value = defaults.integer(forKey: TelegramService.destinationChatIdKey)
+            return value == 0 ? nil : Int64(value)
+        }
+        set {
+            if let newValue {
+                defaults.set(Int(newValue), forKey: TelegramService.destinationChatIdKey)
+            } else {
+                defaults.removeObject(forKey: TelegramService.destinationChatIdKey)
+            }
+        }
+    }
+
+    /// The name of the destination chat, for display.
+    var destinationTitle: String? {
+        get { defaults.string(forKey: TelegramService.destinationTitleKey) }
+        set {
+            if let newValue {
+                defaults.set(newValue, forKey: TelegramService.destinationTitleKey)
+            } else {
+                defaults.removeObject(forKey: TelegramService.destinationTitleKey)
+            }
+        }
+    }
+
+    /// The options the sync engine reads on every run.
+    var syncSettings: SyncSettings {
+        SyncSettings(includeScreenshots: includeScreenshots, resendEdits: resendEdits)
+    }
+}
