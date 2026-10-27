@@ -1,0 +1,70 @@
+name: TelegramPhotos
+options:
+  bundleIdPrefix: io.github.alinurmi
+  deploymentTarget:
+    iOS: "26.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "0.1.0"
+    CURRENT_PROJECT_VERSION: "1"
+    CODE_SIGN_STYLE: Automatic
+    DEVELOPMENT_TEAM: ""
+    ENABLE_USER_SCRIPT_SANDBOXING: YES
+packages:
+  SyncCore:
+    path: Packages/SyncCore
+targets:
+  TelegramPhotos:
+    type: application
+    platform: iOS
+    sources: [App, Shared]
+    dependencies:
+      - package: SyncCore
+      - target: TelegramPhotosWidgets
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: TelegramPhotos
+        UILaunchScreen: {}
+        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
+        NSSupportsLiveActivities: true
+        NSPhotoLibraryUsageDescription: "TelegramPhotos reads your photos and videos to back them up to your Telegram."
+        UIBackgroundModes: [processing]
+        BGTaskSchedulerPermittedIdentifiers:
+          - io.github.alinurmi.telegramphotos.backfill
+          - io.github.alinurmi.telegramphotos.syncnow
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.alinurmi.telegramphotos
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+  TelegramPhotosWidgets:
+    type: app-extension
+    platform: iOS
+    sources: [Widgets, Shared]
+    info:
+      path: Widgets/Info.plist
+      properties:
+        CFBundleDisplayName: TelegramPhotos
+        NSExtension:
+          NSExtensionPointIdentifier: com.apple.widgetkit-extension
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.alinurmi.telegramphotos.widgets
+  TelegramPhotosTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [AppTests]
+    dependencies:
+      - target: TelegramPhotos
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.alinurmi.telegramphotos.tests
+schemes:
+  TelegramPhotos:
+    build:
+      targets:
+        TelegramPhotos: all
+    test:
+      targets: [TelegramPhotosTests]
