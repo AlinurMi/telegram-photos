@@ -63,11 +63,31 @@ extension AuthorizationState {
         }
     }
 }
+
+extension AuthenticationCodeType {
+    /// The case name only; the payloads can hold the phone number.
+    fileprivate var typeName: String {
+        switch self {
+        case .authenticationCodeTypeTelegramMessage: return "authenticationCodeTypeTelegramMessage"
+        case .authenticationCodeTypeSms: return "authenticationCodeTypeSms"
+        case .authenticationCodeTypeSmsWord: return "authenticationCodeTypeSmsWord"
+        case .authenticationCodeTypeSmsPhrase: return "authenticationCodeTypeSmsPhrase"
+        case .authenticationCodeTypeCall: return "authenticationCodeTypeCall"
+        case .authenticationCodeTypeFlashCall: return "authenticationCodeTypeFlashCall"
+        case .authenticationCodeTypeMissedCall: return "authenticationCodeTypeMissedCall"
+        case .authenticationCodeTypeFragment: return "authenticationCodeTypeFragment"
+        case .authenticationCodeTypeFirebaseAndroid: return "authenticationCodeTypeFirebaseAndroid"
+        case .authenticationCodeTypeFirebaseIos: return "authenticationCodeTypeFirebaseIos"
+        }
+    }
+}
 @MainActor
 final class TelegramService: ObservableObject {
     static let shared = TelegramService()
 
     @Published private(set) var step: AuthStep = .starting
+    /// How the latest login code was sent. Only set while the step is `.waitingForCode`.
+    @Published private(set) var codeDelivery: CodeDelivery?
 
     private struct Credentials {
         let apiId: Int
@@ -151,6 +171,11 @@ final class TelegramService: ObservableObject {
         try await perform { _ = try await $0.setAuthenticationPhoneNumber(phoneNumber: phone, settings: nil) }
     }
 
+    /// Asks Telegram to send the code another way. Only works once `codeDelivery.resendAfter` has passed.
+    func resendCode() async throws {
+        try await perform { _ = try await $0.resendAuthenticationCode(reason: .resendCodeReasonUserRequest) }
+    }
+
     /// Checks the login code.
     func submitCode(_ code: String) async throws {
         try await perform { _ = try await $0.checkAuthenticationCode(code: code) }
@@ -202,6 +227,16 @@ final class TelegramService: ObservableObject {
         switch state {
         case .authorizationStateWaitTdlibParameters:
             await sendParameters()
+        case .authorizationStateWaitCode(let waitCode):
+            let info = waitCode.codeInfo
+            let method = CodeDelivery.Method(typeName: info.type.typeName)
+            logger.info("Code delivery: \(info.type.typeName), next: \(info.nextType != nil)", category: "telegram")
+            codeDelivery = CodeDelivery(
+                method: method,
+                canResend: info.nextType != nil,
+                resendAfter: Date().addingTimeInterval(TimeInterval(info.timeout))
+            )
+            publish(.waitingForCode)
         case .authorizationStateClosed:
             updates?.finish()
             updates = nil

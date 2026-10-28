@@ -9,6 +9,7 @@ struct LoginFieldStep: View {
     var isSecure = false
     var keyboard: UIKeyboardType = .default
     var contentType: UITextContentType?
+    var resend: ResendOption?
     let isValid: (String) -> Bool
     let submit: (String) async throws -> Void
 
@@ -46,6 +47,15 @@ struct LoginFieldStep: View {
                 }
                 .disabled(isWorking || !isValid(text))
             }
+            if let resend {
+                Section {
+                    TimelineView(.periodic(from: .now, by: 1)) { context in
+                        let remaining = Int(resend.availableAt.timeIntervalSince(context.date).rounded(.up))
+                        Button(remaining > 0 ? "Resend code in \(remaining)s" : "Resend code", action: runResend)
+                            .disabled(isWorking || remaining > 0)
+                    }
+                }
+            }
         }
         .navigationTitle(title)
         .onAppear { focused = true }
@@ -56,6 +66,22 @@ struct LoginFieldStep: View {
             SecureField(placeholder, text: $text)
         } else {
             TextField(placeholder, text: $text)
+        }
+    }
+
+    private func runResend() {
+        guard let resend, !isWorking else { return }
+        isWorking = true
+        errorText = nil
+        Task {
+            do {
+                try await resend.action()
+            } catch let error as TelegramError {
+                errorText = error.message
+            } catch {
+                errorText = "Something went wrong. Try again."
+            }
+            isWorking = false
         }
     }
 
@@ -94,20 +120,32 @@ struct PhoneStepView: View {
     }
 }
 struct CodeStepView: View {
-    let telegram: TelegramService
+    @ObservedObject var telegram: TelegramService
 
     var body: some View {
         LoginFieldStep(
             title: "Enter the code",
-            message: "Telegram sent a code to your Telegram app. Type it here.",
+            message: telegram.codeDelivery?.method.explanation ?? "Telegram sent you a login code. Type it here.",
             placeholder: "Code",
             buttonTitle: "Continue",
             keyboard: .numberPad,
             contentType: .oneTimeCode,
+            resend: resendOption,
             isValid: { (5...6).contains($0.count) && $0.allSatisfy { $0.isASCII && $0.isNumber } },
             submit: { try await telegram.submitCode($0) }
         )
     }
+
+    private var resendOption: ResendOption? {
+        guard let delivery = telegram.codeDelivery, delivery.canResend else { return nil }
+        return ResendOption(availableAt: delivery.resendAfter) { try await telegram.resendCode() }
+    }
+}
+
+/// A "Resend code" button that unlocks at `availableAt`.
+struct ResendOption {
+    let availableAt: Date
+    let action: () async throws -> Void
 }
 struct PasswordStepView: View {
     let telegram: TelegramService
