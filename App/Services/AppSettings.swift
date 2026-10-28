@@ -12,6 +12,7 @@ final class AppSettings: @unchecked Sendable {
     static let setupCompletedKey = "setupCompleted"
     static let intentBudgetSecondsKey = "intentBudgetSeconds"
     static let defaultIntentBudgetSeconds: TimeInterval = 25
+    static let authLostNotifiedAtKey = "authLostNotifiedAt"
 
     private let defaults: UserDefaults
 
@@ -42,6 +43,12 @@ final class AppSettings: @unchecked Sendable {
     var intentBudgetSeconds: TimeInterval {
         let value = defaults.double(forKey: Self.intentBudgetSecondsKey)
         return value > 0 ? value : Self.defaultIntentBudgetSeconds
+    }
+
+    /// When the "Telegram logged out" notification last showed.
+    var authLostNotifiedAt: Date? {
+        get { defaults.object(forKey: Self.authLostNotifiedAtKey) as? Date }
+        set { defaults.set(newValue, forKey: Self.authLostNotifiedAtKey) }
     }
 
     /// The chat the backup goes to, if one was chosen.
