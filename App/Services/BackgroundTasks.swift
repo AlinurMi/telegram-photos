@@ -3,7 +3,8 @@ import Foundation
 import SyncCore
 
 /// Runs Sync Now as a continued background task, so uploading goes on after the owner leaves the app
-/// and iOS shows the progress in the Dynamic Island and on the Lock Screen.
+/// and iOS shows the progress in the Dynamic Island and on the Lock Screen. Also runs the overnight sync
+/// that uploads older items while the phone charges.
 ///
 /// Named `BackgroundSync` rather than `BackgroundTasks` so it doesn't hide Apple's module of that name.
 @MainActor
@@ -30,11 +31,27 @@ final class BackgroundSync {
     }
 
     nonisolated static var syncNowIdentifier: String? {
-        permittedIdentifiers.first { $0.hasSuffix(".syncnow") }
+        identifier(endingWith: ".syncnow", in: permittedIdentifiers)
     }
 
-    /// Registers the Sync Now handler. Call once, before the app finishes launching.
+    nonisolated static var backfillIdentifier: String? {
+        identifier(endingWith: ".backfill", in: permittedIdentifiers)
+    }
+
+    nonisolated static func identifier(endingWith suffix: String, in identifiers: [String]) -> String? {
+        identifiers.first { $0.hasSuffix(suffix) }
+    }
+
+    /// How long after a request the overnight sync may start, at the earliest.
+    nonisolated static let backfillDelay: TimeInterval = 15 * 60
+
+    /// Registers the Sync Now and overnight handlers. Call once, before the app finishes launching.
     func register() {
+        registerSyncNow()
+        registerBackfill()
+    }
+
+    private func registerSyncNow() {
         guard let identifier = Self.syncNowIdentifier else {
             logger.error("No .syncnow task identifier in Info.plist", category: "background")
             return
@@ -120,10 +137,69 @@ final class BackgroundSync {
         syncNowState = .idle
     }
 
-    /// Asks iOS for the overnight run that uploads older items while charging.
+    private func registerBackfill() {
+        guard let identifier = Self.backfillIdentifier else {
+            logger.error("No .backfill task identifier in Info.plist", category: "background")
+            return
+        }
+        let registered = BGTaskScheduler.shared.register(forTaskWithIdentifier: identifier, using: nil) { task in
+            guard let task = task as? BGProcessingTask else {
+                task.setTaskCompleted(success: false)
+                return
+            }
+            Task { @MainActor in await BackgroundSync.shared.runBackfill(task) }
+        }
+        if !registered {
+            logger.error("Could not register the overnight task", category: "background")
+        }
+    }
+
+    private func runBackfill(_ task: BGProcessingTask) async {
+        let coordinator = SyncCoordinator.shared
+        task.expirationHandler = {
+            Task { await coordinator.cancelCurrentRun() }
+        }
+        logger.info("Overnight sync started", category: "background")
+
+        var report: SyncReport?
+        if AppSettings.shared.setupCompleted {
+            report = await coordinator.sync(trigger: .backgroundProcessing, deadline: nil, allowCellular: false)
+        } else {
+            logger.info("Overnight sync skipped: setup isn't finished", category: "background")
+        }
+
+        // The coordinator reschedules after its own runs; this covers a skipped or "already syncing" run.
+        Self.scheduleBackfill()
+        let success = Self.succeeded(report)
+        task.setTaskCompleted(success: success)
+        logger.info("Overnight sync ended, success: \(success)", category: "background")
+    }
+
+    /// Asks iOS for the overnight run that uploads older items while charging on a network.
     ///
-    /// Does nothing yet; the overnight task isn't built.
-    func scheduleBackfill() {}
+    /// Safe to call often: a new request replaces the one that's waiting. Does nothing before setup is done.
+    nonisolated static func scheduleBackfill() {
+        let logger = FileLogger.shared
+        guard AppSettings.shared.setupCompleted else { return }
+        guard let identifier = backfillIdentifier else {
+            logger.error("Overnight sync not scheduled: no task identifier", category: "background")
+            return
+        }
+        let request = BGProcessingTaskRequest(identifier: identifier)
+        request.requiresExternalPower = true
+        request.requiresNetworkConnectivity = true
+        request.earliestBeginDate = Date().addingTimeInterval(backfillDelay)
+        do {
+            try BGTaskScheduler.shared.submit(request)
+            logger.debug("Overnight sync scheduled", category: "background")
+        } catch let error as BGTaskScheduler.Error where error.code == .tooManyPendingTaskRequests {
+            logger.debug("Overnight sync already scheduled", category: "background")
+        } catch {
+            let nsError = error as NSError
+            logger.warning(
+                "Overnight sync not scheduled (\(nsError.domain) \(nsError.code))", category: "background")
+        }
+    }
 
     /// `nil` means another run was already going, which the task leaves alone.
     nonisolated static func succeeded(_ report: SyncReport?) -> Bool {

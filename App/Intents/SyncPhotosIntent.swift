@@ -36,7 +36,7 @@ enum IntentSync {
         await liveActivity.arm(deadline: deadline)
         let report = await coordinator.sync(trigger: .intent, deadline: deadline, allowCellular: false)
         await liveActivity.disarm()
-        BackgroundSync.shared.scheduleBackfill()
+        BackgroundSync.scheduleBackfill()
 
         let outcome = report == nil ? "already syncing" : "ran"
         logger.info(
