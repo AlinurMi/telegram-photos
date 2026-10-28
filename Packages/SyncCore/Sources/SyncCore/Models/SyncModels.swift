@@ -1,14 +1,9 @@
-/// What started a sync run.
 import Foundation
 
-/// User-controlled sync options.
-
-/// Why a sync run stopped before finishing everything.
-
-/// Number of upload units in each state.
-
-/// The outcome of one sync run.
+/// What started a sync run.
 public enum SyncTrigger: String, Codable, Sendable { case manual, intent, backgroundProcessing, appLaunch }
+
+/// User-controlled sync options.
 public struct SyncSettings: Codable, Sendable, Equatable {
     public var includeScreenshots: Bool
     public var resendEdits: Bool
@@ -19,9 +14,13 @@ public struct SyncSettings: Codable, Sendable, Equatable {
         self.resendEdits = resendEdits
     }
 }
+
+/// Why a sync run stopped before finishing everything.
 public enum BlockReason: String, Codable, Sendable {
     case noNetwork, expensiveNetwork, needsCharger, lowDisk, authLost, noLibraryAccess, deadline, cancelled
 }
+
+/// Number of upload units in each state.
 public struct StatusCounts: Codable, Sendable, Equatable {
     public var done: Int
     public var pending: Int
@@ -47,6 +46,8 @@ public struct StatusCounts: Codable, Sendable, Equatable {
         self.backfillPending = backfillPending
     }
 }
+
+/// The outcome of one sync run.
 public struct SyncReport: Codable, Sendable, Equatable {
     public var trigger: SyncTrigger
     public var startedAt: Date

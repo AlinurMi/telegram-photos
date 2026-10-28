@@ -1,6 +1,6 @@
-/// Builds the short, stable hashtag-safe tag that identifies an asset in captions.
 import Foundation
 
+/// Builds the short, stable hashtag-safe tag that identifies an asset in captions.
 public enum AssetTag {
     /// Returns `"a"` plus the first 10 hex characters of the FNV-1a-64 hash of the identifier's UTF-8 bytes.
     public static func make(localIdentifier: String) -> String {

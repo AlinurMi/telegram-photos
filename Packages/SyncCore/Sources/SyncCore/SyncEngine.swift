@@ -1,7 +1,6 @@
-/// The parameters of one sync run.
 import Foundation
 
-/// Finds new photos and videos and uploads them to Telegram.
+/// The parameters of one sync run.
 public struct SyncRequest: Sendable {
     public var trigger: SyncTrigger
     public var deadline: Date?
@@ -21,6 +20,8 @@ public struct SyncRequest: Sendable {
         self.settings = settings
     }
 }
+
+/// Finds new photos and videos and uploads them to Telegram.
 public actor SyncEngine {
     let library: PhotoLibrary
     let uploader: TelegramUploader

@@ -1,5 +1,4 @@
 import SyncCore
-
 import XCTest
 
 @testable import TelegramPhotos
@@ -225,10 +224,12 @@ final class TelegramUploadTests: XCTestCase {
         }
     }
 }
+
 private struct Report: Equatable {
     let sent: Int64
     let total: Int64
 }
+
 private final class Reports: @unchecked Sendable {
     private let lock = NSLock()
     private var stored: [Report] = []

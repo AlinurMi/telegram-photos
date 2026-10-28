@@ -1,8 +1,8 @@
 import Foundation
 
-/// Records every send and plays back scripted results; unscripted sends succeed with increasing message ids.
 @testable import SyncCore
 
+/// Records every send and plays back scripted results; unscripted sends succeed with increasing message ids.
 actor FakeUploader: TelegramUploader {
     struct Sent: Equatable {
         var fileURL: URL

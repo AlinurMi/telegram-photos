@@ -1,5 +1,4 @@
 import SyncCore
-
 import XCTest
 
 @testable import TelegramPhotos
@@ -72,6 +71,7 @@ final class AppModelTests: XCTestCase {
         XCTAssertEqual(model.lastReport, newer)
     }
 }
+
 final class AppSettingsTests: XCTestCase {
     private func makeSettings() throws -> (AppSettings, UserDefaults) {
         let suiteName = "AppSettingsTests-\(UUID().uuidString)"

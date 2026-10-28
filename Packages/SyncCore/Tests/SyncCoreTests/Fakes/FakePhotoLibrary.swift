@@ -1,8 +1,8 @@
 import Foundation
 
-/// In-memory photo library: exports write a fixed number of bytes, and errors can be scripted per asset.
 @testable import SyncCore
 
+/// In-memory photo library: exports write a fixed number of bytes, and errors can be scripted per asset.
 actor FakePhotoLibrary: PhotoLibrary {
     struct Export: Equatable {
         var assetLocalIdentifier: String

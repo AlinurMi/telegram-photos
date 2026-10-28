@@ -1,6 +1,6 @@
-/// How Telegram delivered the login code, and whether another code can be requested.
 import Foundation
 
+/// How Telegram delivered the login code, and whether another code can be requested.
 struct CodeDelivery: Equatable, Sendable {
     enum Method: Equatable, Sendable {
         /// A message in the "Telegram" chat of an app where the owner is already logged in.

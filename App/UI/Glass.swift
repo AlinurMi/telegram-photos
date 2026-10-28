@@ -1,15 +1,6 @@
-/// A faint accent glow at the top that fades into the system background.
 import SwiftUI
 
-/// Large title, a short line of context and the screen's content on the soft backdrop.
-
-/// A rounded glass container for a text field.
-
-/// The one main action on a screen.
-
-/// A calm secondary action: grey text, no chrome.
-
-/// A short error line under a field.
+/// A faint accent glow at the top that fades into the system background.
 struct SoftBackdrop: View {
     var body: some View {
         ZStack {
@@ -23,6 +14,8 @@ struct SoftBackdrop: View {
         .ignoresSafeArea()
     }
 }
+
+/// Large title, a short line of context and the screen's content on the soft backdrop.
 struct ScreenLayout<Content: View>: View {
     let title: String
     var subtitle: String?
@@ -51,6 +44,8 @@ struct ScreenLayout<Content: View>: View {
         .background { SoftBackdrop() }
     }
 }
+
+/// A rounded glass container for a text field.
 struct GlassField<Field: View>: View {
     @ViewBuilder var field: Field
 
@@ -62,6 +57,8 @@ struct GlassField<Field: View>: View {
             .glassEffect(.regular, in: .rect(cornerRadius: 24))
     }
 }
+
+/// The one main action on a screen.
 struct PrimaryButton: View {
     let title: String
     var isWorking = false
@@ -83,6 +80,8 @@ struct PrimaryButton: View {
         .disabled(isWorking)
     }
 }
+
+/// A calm secondary action: grey text, no chrome.
 struct QuietButton: View {
     let title: String
     let action: () -> Void
@@ -98,6 +97,8 @@ struct QuietButton: View {
         .foregroundStyle(.secondary)
     }
 }
+
+/// A short error line under a field.
 struct ErrorLine: View {
     let text: String
 

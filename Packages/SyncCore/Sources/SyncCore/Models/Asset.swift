@@ -1,17 +1,14 @@
-/// Whether an asset is a photo or a video.
 import Foundation
 
-/// The kind of a file stored inside a photo-library asset.
-
-/// One file belonging to an asset, as reported by the photo library.
-
-/// A GPS position in degrees.
-
-/// Everything SyncCore needs to know about one photo-library asset.
+/// Whether an asset is a photo or a video.
 public enum MediaKind: String, Codable, Sendable { case image, video }
+
+/// The kind of a file stored inside a photo-library asset.
 public enum ResourceKind: String, Codable, Sendable {
     case photo, fullSizePhoto, alternatePhoto, pairedVideo, fullSizePairedVideo, video, fullSizeVideo
 }
+
+/// One file belonging to an asset, as reported by the photo library.
 public struct ResourceDescriptor: Codable, Sendable, Equatable {
     public var kind: ResourceKind
     public var originalFilename: String
@@ -24,6 +21,8 @@ public struct ResourceDescriptor: Codable, Sendable, Equatable {
         self.byteSize = byteSize
     }
 }
+
+/// A GPS position in degrees.
 public struct Coordinate: Codable, Sendable, Equatable {
     public var latitude: Double
     public var longitude: Double
@@ -34,6 +33,8 @@ public struct Coordinate: Codable, Sendable, Equatable {
         self.longitude = longitude
     }
 }
+
+/// Everything SyncCore needs to know about one photo-library asset.
 public struct AssetDescriptor: Codable, Sendable, Equatable {
     public var localIdentifier: String
     public var creationDate: Date?

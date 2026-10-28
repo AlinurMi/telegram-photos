@@ -1,14 +1,9 @@
 import ActivityKit
-
 import BackgroundTasks
-
 import Foundation
-
-/// Task identifiers come from Info.plist so they follow whatever the build declares (D4).
 import Observation
 
-/// What the demo is doing right now, shown on the debug screen.
-
+/// Task identifiers come from Info.plist so they follow whatever the build declares (D4).
 enum SpikeIdentifiers {
     static var permitted: [String] {
         Bundle.main.object(forInfoDictionaryKey: "BGTaskSchedulerPermittedIdentifiers") as? [String] ?? []
@@ -25,6 +20,8 @@ enum SpikeIdentifiers {
         return urls.filter { $0.pathExtension == "appex" }.compactMap { Bundle(url: $0)?.bundleIdentifier }.first
     }
 }
+
+/// What the demo is doing right now, shown on the debug screen.
 @MainActor
 @Observable
 final class SpikeModel {
@@ -111,6 +108,7 @@ final class SpikeModel {
         backgroundStatus = success ? "Finished" : "Stopped early (cancelled or expired)"
     }
 }
+
 enum SpikeTasks {
     /// Registers the demo launch handler. Must be called before the app finishes launching.
     static func registerSyncNow() {

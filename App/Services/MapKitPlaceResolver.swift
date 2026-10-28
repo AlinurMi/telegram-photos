@@ -1,15 +1,9 @@
 import CoreLocation
-
 import Foundation
-
 import MapKit
-
-/// Spaces out requests so the geocoder isn't called more than once per `interval`.
 import SyncCore
 
-/// Looks up a place name for a coordinate with MapKit's reverse geocoder.
-///
-/// Names look like "Paris, France". Results are cached by the sync engine, not here.
+/// Spaces out requests so the geocoder isn't called more than once per `interval`.
 actor RequestThrottle {
     private let interval: TimeInterval
     private var nextSlot: Date?
@@ -29,6 +23,10 @@ actor RequestThrottle {
         }
     }
 }
+
+/// Looks up a place name for a coordinate with MapKit's reverse geocoder.
+///
+/// Names look like "Paris, France". Results are cached by the sync engine, not here.
 struct MapKitPlaceResolver: PlaceResolver {
     private let throttle: RequestThrottle
     private let logger: FileLogger

@@ -8,6 +8,7 @@ private func roundTrip<T: Codable & Equatable>(_ value: T) throws -> T {
     let data = try encoder.encode(value)
     return try JSONDecoder().decode(T.self, from: data)
 }
+
 private func makeUnit() -> UploadUnit {
     UploadUnit(
         id: "ABC/L0/001|edit|1792000000",
@@ -30,13 +31,16 @@ private func makeUnit() -> UploadUnit {
         uploadedAt: nil
     )
 }
+
 @Test func uploadUnitRoundTripsThroughJSON() throws {
     let unit = makeUnit()
     #expect(try roundTrip(unit) == unit)
 }
+
 @Test func uploadUnitIdentifiableUsesId() {
     #expect(makeUnit().id == "ABC/L0/001|edit|1792000000")
 }
+
 @Test func uploadUnitInitDefaults() {
     let unit = UploadUnit(
         id: "x|primary",
@@ -52,10 +56,12 @@ private func makeUnit() -> UploadUnit {
     #expect(unit.location == nil)
     #expect(unit.messageId == nil)
 }
+
 @Test func rateLimitedErrorKindRoundTripsThroughJSON() throws {
     let kind = UploadErrorKind.rateLimited(retryAfterSeconds: 42)
     #expect(try roundTrip(kind) == kind)
 }
+
 @Test func everyErrorKindRoundTripsThroughJSON() throws {
     let kinds: [UploadErrorKind] = [
         .transient, .rateLimited(retryAfterSeconds: 7), .permanent, .notLocal, .tooLarge,
@@ -63,10 +69,12 @@ private func makeUnit() -> UploadUnit {
     ]
     for kind in kinds { #expect(try roundTrip(kind) == kind) }
 }
+
 @Test func uploadErrorRoundTripsThroughJSON() throws {
     let error = UploadError(kind: .rateLimited(retryAfterSeconds: 30), message: "FLOOD_WAIT_30")
     #expect(try roundTrip(error) == error)
 }
+
 @Test func assetDescriptorRoundTripsThroughJSON() throws {
     let asset = AssetDescriptor(
         localIdentifier: "ABC/L0/001",
@@ -83,18 +91,21 @@ private func makeUnit() -> UploadUnit {
     #expect(try roundTrip(asset) == asset)
     #expect(asset.resources[1].byteSize == nil)
 }
+
 @Test func syncSettingsDefaults() throws {
     let settings = SyncSettings()
     #expect(settings.includeScreenshots == true)
     #expect(settings.resendEdits == false)
     #expect(try roundTrip(settings) == settings)
 }
+
 @Test func statusCountsStartAtZero() throws {
     let counts = StatusCounts()
     #expect(counts.done == 0 && counts.pending == 0 && counts.uploading == 0)
     #expect(counts.failed == 0 && counts.skipped == 0 && counts.backfillPending == 0)
     #expect(try roundTrip(counts) == counts)
 }
+
 @Test func syncReportRoundTripsThroughJSON() throws {
     let report = SyncReport(
         trigger: .backgroundProcessing,
@@ -108,6 +119,7 @@ private func makeUnit() -> UploadUnit {
     )
     #expect(try roundTrip(report) == report)
 }
+
 @Test func enumRawValuesAreStable() {
     #expect(ResourceKind.fullSizePairedVideo.rawValue == "fullSizePairedVideo")
     #expect(UnitRole.allCases == [.primary, .raw, .live, .edit])

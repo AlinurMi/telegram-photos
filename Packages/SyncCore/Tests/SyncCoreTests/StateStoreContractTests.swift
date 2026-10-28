@@ -3,8 +3,6 @@ import Testing
 
 @testable import SyncCore
 
-/// Behaviour every `StateStore` must have. Reused by the app-side database tests.
-
 private func unit(
     _ id: String,
     asset: String = "A",
@@ -22,6 +20,8 @@ private func unit(
         status: status
     )
 }
+
+/// Behaviour every `StateStore` must have. Reused by the app-side database tests.
 func stateStoreContract(_ make: () -> any StateStore) async throws {
     let store = make()
 
@@ -71,6 +71,7 @@ func stateStoreContract(_ make: () -> any StateStore) async throws {
     #expect(try await store.counts() == StatusCounts())
     #expect(try await store.cachedPlace(key: "k") == "Bishkek")
 }
+
 @Suite struct InMemoryStateStoreTests {
     @Test func satisfiesTheStateStoreContract() async throws {
         try await stateStoreContract { InMemoryStateStore() }

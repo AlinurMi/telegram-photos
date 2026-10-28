@@ -1,9 +1,6 @@
-/// A clickable range in a caption, measured in UTF-16 code units as Telegram expects.
 import Foundation
 
-/// The caption text of an upload plus the links inside it.
-
-/// Builds the caption sent with each uploaded document.
+/// A clickable range in a caption, measured in UTF-16 code units as Telegram expects.
 public struct TextLink: Sendable, Equatable {
     public var utf16Offset: Int
     public var utf16Length: Int
@@ -16,6 +13,8 @@ public struct TextLink: Sendable, Equatable {
         self.url = url
     }
 }
+
+/// The caption text of an upload plus the links inside it.
 public struct Caption: Sendable, Equatable {
     public var text: String
     public var links: [TextLink]
@@ -26,6 +25,8 @@ public struct Caption: Sendable, Equatable {
         self.links = links
     }
 }
+
+/// Builds the caption sent with each uploaded document.
 public enum CaptionBuilder {
     /// Builds the three-line caption (date and filename, location, hashtags), keeping it within `maxLength` characters.
     public static func build(

@@ -1,8 +1,8 @@
 import Foundation
 
-/// A `StateStore` that keeps everything in memory.
 @testable import SyncCore
 
+/// A `StateStore` that keeps everything in memory.
 actor InMemoryStateStore: StateStore {
     private var metaValues: [MetaKey: String] = [:]
     private var units: [String: UploadUnit] = [:]

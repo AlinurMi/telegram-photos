@@ -1,4 +1,5 @@
 import Foundation
+import os
 
 /// Appends log lines to `Application Support/Logs/app.log` and mirrors them to `os.Logger`.
 ///
@@ -8,9 +9,6 @@ import Foundation
 /// - location coordinates
 ///
 /// Asset tags, unit ids, filenames, sizes and error messages are fine.
-import os
-
-/// The app-wide logger.
 actor FileLogger {
     enum Level: String, Sendable {
         case debug = "DEBUG"
@@ -174,4 +172,6 @@ actor FileLogger {
         currentSize = 0
     }
 }
+
+/// The app-wide logger.
 let log = FileLogger.shared

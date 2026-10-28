@@ -1,7 +1,5 @@
 import ActivityKit
-
 import SwiftUI
-
 import WidgetKit
 
 private extension SyncActivityAttributes.ContentState {
@@ -20,6 +18,7 @@ private extension SyncActivityAttributes.ContentState {
         ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
     }
 }
+
 private struct ProgressBadge: View {
     let state: SyncActivityAttributes.ContentState
 
@@ -32,6 +31,7 @@ private struct ProgressBadge: View {
         }
     }
 }
+
 private struct ActivityDetails: View {
     let state: SyncActivityAttributes.ContentState
 
@@ -50,6 +50,7 @@ private struct ActivityDetails: View {
         }
     }
 }
+
 struct SyncLiveActivity: Widget {
     var body: some WidgetConfiguration {
         ActivityConfiguration(for: SyncActivityAttributes.self) { context in

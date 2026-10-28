@@ -1,6 +1,6 @@
-/// Asks for the Telegram API ID and hash, saves them to the Keychain and starts TDLib.
 import SwiftUI
 
+/// Asks for the Telegram API ID and hash, saves them to the Keychain and starts TDLib.
 struct CredentialsView: View {
     let telegram: TelegramService
 

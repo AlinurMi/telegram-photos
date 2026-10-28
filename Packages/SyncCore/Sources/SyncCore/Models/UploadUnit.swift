@@ -1,14 +1,15 @@
-/// Which part of an asset an upload unit carries.
 import Foundation
 
+/// Which part of an asset an upload unit carries.
+public enum UnitRole: String, Codable, Sendable, CaseIterable { case primary, raw, live, edit }
+
 /// Where an upload unit is in its life cycle.
+public enum UnitStatus: String, Codable, Sendable { case pending, uploading, done, failed, skipped }
 
 /// Why an upload unit was skipped instead of uploaded.
+public enum SkipReason: String, Codable, Sendable { case notLocal, tooLarge, screenshotsDisabled }
 
 /// One file to upload to Telegram, with its sync state.
-public enum UnitRole: String, Codable, Sendable, CaseIterable { case primary, raw, live, edit }
-public enum UnitStatus: String, Codable, Sendable { case pending, uploading, done, failed, skipped }
-public enum SkipReason: String, Codable, Sendable { case notLocal, tooLarge, screenshotsDisabled }
 public struct UploadUnit: Codable, Sendable, Equatable, Identifiable {
     /// `"<localIdentifier>|<role>"`, or `"<localIdentifier>|edit|<unix modificationDate>"` for edits.
     public var id: String

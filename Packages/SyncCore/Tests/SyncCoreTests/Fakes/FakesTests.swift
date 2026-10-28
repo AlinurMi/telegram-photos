@@ -9,6 +9,7 @@ private func makeTempFile(bytes: Int) throws -> URL {
     try Data(count: bytes).write(to: url)
     return url
 }
+
 @Suite struct FakesTests {
     @Test func photoLibraryExportsBytesAndRecordsCalls() async throws {
         let library = FakePhotoLibrary(exportByteCount: 32)

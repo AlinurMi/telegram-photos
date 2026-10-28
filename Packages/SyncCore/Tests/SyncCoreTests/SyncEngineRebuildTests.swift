@@ -43,15 +43,18 @@ private struct Harness {
         try #require(try await store.allUnits().first { $0.id == id })
     }
 }
+
 private func caption(for id: String, role: String = "") -> String {
     "2026-01-02 10:00 · \(id).HEIC\n#y2026 #m01 #\(AssetTag.make(localIdentifier: id))\(role)"
 }
+
 private func failedUnit(_ id: String, status: UnitStatus = .failed) -> UploadUnit {
     UploadUnit(
         id: "\(id)|primary", assetLocalIdentifier: id, assetTag: AssetTag.make(localIdentifier: id),
         role: .primary, resourceKind: .photo, uploadFilename: "\(id).HEIC", status: status,
         attempts: 8, nextAttemptAt: start.addingTimeInterval(500), lastError: "boom")
 }
+
 @Test func rebuildMarksUnitsWithMatchingCaptionsAsDone() async throws {
     let h = Harness()
     await h.addPhotos(["a", "b", "c"])
@@ -62,6 +65,7 @@ private func failedUnit(_ id: String, status: UnitStatus = .failed) -> UploadUni
     #expect(try await h.unit("b|primary").status == .pending)
     #expect(try await h.unit("c|primary").status == .done)
 }
+
 @Test func rebuildLeavesMessageIdEmpty() async throws {
     let h = Harness()
     await h.addPhotos(["a"])
@@ -69,6 +73,7 @@ private func failedUnit(_ id: String, status: UnitStatus = .failed) -> UploadUni
     _ = try await h.engine.rebuildFromChannel()
     #expect(try await h.unit("a|primary").messageId == nil)
 }
+
 @Test func rebuildMatchesTheRoleToo() async throws {
     let h = Harness()
     await h.addPhotos(["a"])
@@ -88,12 +93,14 @@ private func failedUnit(_ id: String, status: UnitStatus = .failed) -> UploadUni
     #expect(try await h.engine.rebuildFromChannel() == 1)
     #expect(try await h.unit("a|raw").status == .done)
 }
+
 @Test func rebuildCountsAUnitOnceWhenItsCaptionAppearsTwice() async throws {
     let h = Harness()
     await h.addPhotos(["a"])
     await h.uploader.setCaptions([caption(for: "a"), caption(for: "a")])
     #expect(try await h.engine.rebuildFromChannel() == 1)
 }
+
 @Test func rebuildDoesNotCountUnitsThatAreAlreadyDone() async throws {
     let h = Harness()
     await h.addPhotos(["a", "b"])
@@ -106,6 +113,7 @@ private func failedUnit(_ id: String, status: UnitStatus = .failed) -> UploadUni
     #expect(try await h.engine.rebuildFromChannel() == 1)
     #expect(try await h.unit("a|primary").messageId == 77)
 }
+
 @Test func rebuildClearsSkipAndErrorDetails() async throws {
     let h = Harness()
     await h.addPhotos(["a", "b"])
@@ -130,6 +138,7 @@ private func failedUnit(_ id: String, status: UnitStatus = .failed) -> UploadUni
         #expect(unit.nextAttemptAt == nil)
     }
 }
+
 @Test func rebuildIgnoresCaptionsThatDoNotMatchAnything() async throws {
     let h = Harness()
     await h.addPhotos(["a"])
@@ -137,6 +146,7 @@ private func failedUnit(_ id: String, status: UnitStatus = .failed) -> UploadUni
     #expect(try await h.engine.rebuildFromChannel() == 0)
     #expect(try await h.unit("a|primary").status == .pending)
 }
+
 @Test func rebuildDiscoversNewAssetsFirst() async throws {
     let h = Harness()
     await h.addPhotos(["a"])
@@ -145,11 +155,13 @@ private func failedUnit(_ id: String, status: UnitStatus = .failed) -> UploadUni
     #expect(try await h.engine.rebuildFromChannel() == 1)
     #expect(try await h.store.allUnits().count == 1)
 }
+
 @Test func rebuildThrowsWithoutLibraryAccess() async throws {
     let h = Harness(authorization: .limited)
     await h.uploader.setCaptions([caption(for: "a")])
     await #expect(throws: UploadError.self) { _ = try await h.engine.rebuildFromChannel() }
 }
+
 @Test func rebuildChangesNothingIfReadingTheChannelFails() async throws {
     let h = Harness()
     await h.addPhotos(["a", "b"])
@@ -158,6 +170,7 @@ private func failedUnit(_ id: String, status: UnitStatus = .failed) -> UploadUni
     await #expect(throws: UploadError.self) { _ = try await h.engine.rebuildFromChannel() }
     #expect(try await h.store.allUnits().allSatisfy { $0.status == .pending })
 }
+
 @Test func retryFailedResetsOnlyFailedUnits() async throws {
     let h = Harness()
     try await h.store.insert([
@@ -173,6 +186,7 @@ private func failedUnit(_ id: String, status: UnitStatus = .failed) -> UploadUni
     #expect(try await h.unit("b|primary").attempts == 8)
     #expect(try await h.unit("c|primary").status == .done)
 }
+
 @Test func retryFailedReturnsZeroWhenNothingFailed() async throws {
     let h = Harness()
     #expect(try await h.engine.retryFailed() == 0)

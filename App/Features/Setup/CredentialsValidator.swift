@@ -1,6 +1,6 @@
-/// Checks the Telegram API details the owner types in.
 import Foundation
 
+/// Checks the Telegram API details the owner types in.
 enum CredentialsValidator {
     /// The API ID if `text` is digits only and greater than zero.
     static func apiId(_ text: String) -> Int? {

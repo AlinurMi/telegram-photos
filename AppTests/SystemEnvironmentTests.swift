@@ -1,9 +1,6 @@
 import Network
-
 import SyncCore
-
 import UIKit
-
 import XCTest
 
 @testable import TelegramPhotos
@@ -38,6 +35,7 @@ final class SystemEnvironmentTests: XCTestCase {
         XCTAssertLessThan(abs(SystemClock().now().timeIntervalSinceNow), 1.0)
     }
 }
+
 final class MapKitPlaceResolverTests: XCTestCase {
     func testFormatsCityAndCountry() {
         XCTAssertEqual(MapKitPlaceResolver.format(city: "Paris", country: "France"), "Paris, France")
