@@ -155,6 +155,10 @@ final class ContinuedTaskProgress: SyncObserver, @unchecked Sendable {
     }
 
     func handle(_ event: SyncEvent) async {
+        apply(event)
+    }
+
+    private func apply(_ event: SyncEvent) {
         lock.lock()
         defer { lock.unlock() }
         guard let task else { return }
