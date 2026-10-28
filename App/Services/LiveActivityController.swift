@@ -1,7 +1,5 @@
 import ActivityKit
-
 import Foundation
-
 import SyncCore
 
 private typealias SyncActivityContent = ActivityContent<SyncActivityAttributes.ContentState>
