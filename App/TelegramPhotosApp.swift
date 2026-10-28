@@ -7,6 +7,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
         BackgroundSync.shared.register()
+        Task { await LiveActivityController.shared.endLeftovers() }
         return true
     }
 }

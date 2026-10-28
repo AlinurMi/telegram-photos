@@ -1,37 +1,36 @@
 import ActivityKit
 import SwiftUI
+import UIKit
 import WidgetKit
 
-private extension SyncActivityAttributes.ContentState {
-    var fraction: Double {
-        total > 0 ? min(1, Double(done) / Double(total)) : 0
-    }
-
-    var summary: String {
-        if finished {
-            return "\(done) uploaded · \(Self.format(uploadedBytes))"
-        }
-        return "\(done)/\(total) · \(Self.format(bytesRemaining)) left"
-    }
-
-    static func format(_ bytes: Int64) -> String {
-        ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
-    }
+extension Color {
+    /// The app's `AccentColor`, repeated here because the extension has no asset catalog.
+    fileprivate static let syncAccent = Color(
+        UIColor { traits in
+            traits.userInterfaceStyle == .dark
+                ? UIColor(red: 0.180, green: 0.525, blue: 0.918, alpha: 1)
+                : UIColor(red: 0.106, green: 0.435, blue: 0.769, alpha: 1)
+        })
 }
 
+/// A progress ring while syncing, a tick once finished.
 private struct ProgressBadge: View {
     let state: SyncActivityAttributes.ContentState
 
     var body: some View {
         if state.finished {
             Image(systemName: "checkmark")
+                .fontWeight(.semibold)
+                .foregroundStyle(Color.syncAccent)
         } else {
             ProgressView(value: state.fraction)
                 .progressViewStyle(.circular)
+                .tint(.syncAccent)
         }
     }
 }
 
+/// Current file, progress bar and counts, for the expanded island and the Lock Screen.
 private struct ActivityDetails: View {
     let state: SyncActivityAttributes.ContentState
 
@@ -41,11 +40,14 @@ private struct ActivityDetails: View {
                 Text(name)
                     .font(.subheadline)
                     .lineLimit(1)
+                    .truncationMode(.middle)
             }
-            ProgressView(value: state.finished ? 1 : state.fraction)
+            ProgressView(value: state.fraction)
                 .progressViewStyle(.linear)
+                .tint(.syncAccent)
             Text(state.summary)
                 .font(.caption)
+                .monospacedDigit()
                 .foregroundStyle(.secondary)
         }
     }
@@ -64,10 +66,12 @@ struct SyncLiveActivity: Widget {
             } compactLeading: {
                 ProgressBadge(state: context.state)
             } compactTrailing: {
-                Text(context.state.finished ? "\(context.state.done)" : "\(context.state.done)/\(context.state.total)")
+                Text(context.state.compactText)
+                    .monospacedDigit()
             } minimal: {
                 ProgressBadge(state: context.state)
             }
+            .keylineTint(.syncAccent)
         }
     }
 }
