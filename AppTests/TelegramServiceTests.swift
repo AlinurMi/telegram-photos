@@ -1,5 +1,4 @@
 import SyncCore
-
 import XCTest
 
 @testable import TelegramPhotos
@@ -23,7 +22,6 @@ final class TelegramServiceTests: XCTestCase {
             "authorizationStateWaitEmailAddress",
             "authorizationStateWaitEmailCode",
             "authorizationStateWaitRegistration",
-            "authorizationStateWaitOtherDeviceConfirmation",
             "authorizationStateWaitPremiumPurchase",
         ] {
             XCTAssertEqual(AuthStep.step(forStateName: name), .unsupported(name))

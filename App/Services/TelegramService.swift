@@ -3,6 +3,7 @@ import Security
 import SyncCore
 /// Where the Telegram login stands. The setup screens show one view per case.
 import TDLibKit
+import UIKit
 
 /// Owns the one TDLib client of the process and publishes the login state.
 ///
@@ -16,6 +17,8 @@ enum AuthStep: Equatable, Sendable {
     case waitingForPhone
     case waitingForCode
     case waitingForPassword
+    /// Waiting for another logged-in device to scan the QR code that encodes `link`. Never log the link.
+    case waitingForQr(link: String)
     case ready
     /// Telegram asked for a step this app can't do (e.g. email login). `name` is the TDLib state name.
     case unsupported(String)
@@ -24,6 +27,8 @@ enum AuthStep: Equatable, Sendable {
     case failed(String)
 
     /// Maps a TDLib authorization state name (e.g. `authorizationStateWaitCode`) to a step.
+    ///
+    /// The QR step needs its link, so `TelegramService` builds `.waitingForQr` itself.
     static func step(forStateName name: String) -> AuthStep {
         switch name {
         case "authorizationStateWaitTdlibParameters":
@@ -172,6 +177,11 @@ final class TelegramService: ObservableObject {
         try await perform { _ = try await $0.setAuthenticationPhoneNumber(phoneNumber: phone, settings: nil) }
     }
 
+    /// Switches to QR login: another logged-in device scans the code instead of typing a login code.
+    func requestQrLogin() async throws {
+        try await perform { _ = try await $0.requestQrCodeAuthentication(otherUserIds: []) }
+    }
+
     /// Asks Telegram to send the code another way. Only works once `codeDelivery.resendAfter` has passed.
     func resendCode() async throws {
         try await perform { _ = try await $0.resendAuthenticationCode(reason: .resendCodeReasonUserRequest) }
@@ -255,6 +265,8 @@ final class TelegramService: ObservableObject {
                 resendAfter: Date().addingTimeInterval(TimeInterval(info.timeout))
             )
             publish(.waitingForCode)
+        case .authorizationStateWaitOtherDeviceConfirmation(let confirmation):
+            publish(.waitingForQr(link: confirmation.link))
         case .authorizationStateClosed:
             updates?.finish()
             updates = nil
@@ -292,10 +304,10 @@ final class TelegramService: ObservableObject {
                 applicationVersion: Self.appVersion,
                 databaseDirectory: directories.database.path,
                 databaseEncryptionKey: key,
-                deviceModel: "iPhone",
+                deviceModel: Self.deviceModel,
                 filesDirectory: directories.files.path,
                 systemLanguageCode: "en",
-                systemVersion: nil,
+                systemVersion: UIDevice.current.systemVersion,
                 useChatInfoDatabase: true,
                 useFileDatabase: true,
                 useMessageDatabase: false,
@@ -350,6 +362,16 @@ final class TelegramService: ObservableObject {
         let key = Data(bytes)
         try keychain.set(key, for: KeychainStore.Key.dbKey)
         return key
+    }
+
+    /// The hardware identifier (for example `iPhone17,1`); Telegram shows it in the device list.
+    private static var deviceModel: String {
+        var info = utsname()
+        uname(&info)
+        let machine = withUnsafeBytes(of: &info.machine) { buffer in
+            String(decoding: buffer.prefix { $0 != 0 }, as: UTF8.self)
+        }
+        return machine.isEmpty ? "iPhone" : machine
     }
 
     private static var appVersion: String {

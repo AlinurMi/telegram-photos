@@ -8,44 +8,40 @@ struct CredentialsView: View {
     @State private var apiHash = ""
     @State private var errorText: String?
 
+    private static let helpURL = URL(string: "https://my.telegram.org") ?? URL(fileURLWithPath: "/")
+
     private var canContinue: Bool {
         CredentialsValidator.apiId(apiId) != nil && CredentialsValidator.isValidApiHash(apiHash)
     }
 
     var body: some View {
-        Form {
-            Section {
-                Text("TelegramPhotos needs your own Telegram API details to log in.")
-                Link("Where do I get these?", destination: Self.helpURL)
-            }
-            Section("API ID") {
-                TextField("Numbers only", text: $apiId)
-                    .keyboardType(.numberPad)
-            }
-            Section("API hash") {
-                TextField("32 letters and numbers", text: $apiHash)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .font(.body.monospaced())
-            }
-            if let errorText {
-                Section {
-                    Text(errorText).foregroundStyle(.red)
+        ScreenLayout(title: "Connect Telegram", subtitle: "Your own API details.") {
+            VStack(spacing: 16) {
+                GlassField {
+                    TextField("API ID", text: $apiId)
+                        .keyboardType(.numberPad)
                 }
-            }
-            Section {
-                Button("Continue", action: save)
+                GlassField {
+                    TextField("API hash", text: $apiHash)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                        .font(.title3.monospaced())
+                }
+                if let errorText { ErrorLine(text: errorText) }
+                PrimaryButton(title: "Continue", action: save)
                     .disabled(!canContinue)
+                Link("Where do I find these?", destination: Self.helpURL)
+                    .font(.subheadline.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .padding(.vertical, 6)
+                    .frame(maxWidth: .infinity)
             }
         }
-        .navigationTitle("Welcome")
     }
-
-    private static let helpURL = URL(string: "https://my.telegram.org") ?? URL(fileURLWithPath: "/")
 
     private func save() {
         guard let id = CredentialsValidator.apiId(apiId), CredentialsValidator.isValidApiHash(apiHash) else {
-            errorText = "Check the API ID (numbers only) and the API hash (32 characters)."
+            errorText = "Check the API ID and hash."
             return
         }
         do {
@@ -56,7 +52,7 @@ struct CredentialsView: View {
             telegram.start()
         } catch {
             log.error("Could not save API credentials: \(error)", category: "setup")
-            errorText = "Couldn't save the details on this iPhone. Try again."
+            errorText = "Couldn't save the details. Try again."
         }
     }
 }

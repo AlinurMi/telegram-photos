@@ -27,15 +27,13 @@ struct CodeDelivery: Equatable, Sendable {
         var explanation: String {
             switch self {
             case .telegramApp:
-                return
-                    "Telegram sent the code as a message in your Telegram app, in the chat named \"Telegram\". Open Telegram on a device where you're already logged in."
+                return "Sent to your Telegram app, in the chat named Telegram."
             case .sms:
-                return "Telegram sent the code by text message."
+                return "Sent by text message."
             case .call:
-                return "Telegram will call you and read out the code."
+                return "Telegram will call you with the code."
             case .unreachable:
-                return
-                    "Telegram chose a delivery method this app can't receive. Log in to Telegram on another device so the code can arrive there, then tap Resend code."
+                return "Telegram can't deliver the code here. Try Resend, or log in with a QR code."
             }
         }
     }

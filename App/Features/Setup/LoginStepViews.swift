@@ -1,16 +1,16 @@
-/// One text field, one button and an inline error. The phone, code and password steps all use it.
 import SwiftUI
 
+/// One text field, one main button and a few quiet actions. The phone, code and password steps all use it.
 struct LoginFieldStep: View {
     let title: String
-    let message: String
+    var subtitle: String?
     let placeholder: String
     let buttonTitle: String
     var isSecure = false
     var keyboard: UIKeyboardType = .default
     var contentType: UITextContentType?
     var resend: ResendOption?
-    var changeCredentials: (() async throws -> Void)?
+    var extras: [ExtraAction] = []
     let isValid: (String) -> Bool
     let submit: (String) async throws -> Void
 
@@ -20,102 +20,63 @@ struct LoginFieldStep: View {
     @FocusState private var focused: Bool
 
     var body: some View {
-        Form {
-            Section {
-                Text(message)
-            }
-            Section {
-                field
-                    .focused($focused)
-                    .keyboardType(keyboard)
-                    .textContentType(contentType)
-                    .textInputAutocapitalization(.never)
-                    .autocorrectionDisabled()
-                    .onSubmit(run)
-            }
-            if let errorText {
-                Section {
-                    Text(errorText).foregroundStyle(.red)
-                }
-            }
-            Section {
-                Button(action: run) {
-                    if isWorking {
-                        ProgressView()
-                    } else {
-                        Text(buttonTitle)
-                    }
-                }
-                .disabled(isWorking || !isValid(text))
-            }
-            if let resend {
-                Section {
-                    TimelineView(.periodic(from: .now, by: 1)) { context in
-                        let remaining = Int(resend.availableAt.timeIntervalSince(context.date).rounded(.up))
-                        Button(remaining > 0 ? "Resend code in \(remaining)s" : "Resend code", action: runResend)
+        ScreenLayout(title: title, subtitle: subtitle) {
+            VStack(spacing: 16) {
+                GlassField { field }
+                if let errorText { ErrorLine(text: errorText) }
+                PrimaryButton(title: buttonTitle, isWorking: isWorking, action: run)
+                    .disabled(!isValid(text))
+                VStack(spacing: 4) {
+                    if let resend {
+                        TimelineView(.periodic(from: .now, by: 1)) { context in
+                            let remaining = Int(resend.availableAt.timeIntervalSince(context.date).rounded(.up))
+                            QuietButton(
+                                title: remaining > 0 ? "Resend code in \(remaining)s" : "Resend code",
+                                action: { perform(resend.action) }
+                            )
                             .disabled(isWorking || remaining > 0)
+                        }
+                    }
+                    ForEach(extras) { extra in
+                        QuietButton(title: extra.title, action: { perform(extra.action) })
+                            .disabled(isWorking)
                     }
                 }
-            }
-            if let changeCredentials {
-                Section {
-                    Button("Use different API details") { runChangeCredentials(changeCredentials) }
-                        .disabled(isWorking)
-                }
+                .frame(maxWidth: .infinity)
             }
         }
-        .navigationTitle(title)
         .onAppear { focused = true }
     }
 
     @ViewBuilder private var field: some View {
-        if isSecure {
-            SecureField(placeholder, text: $text)
-        } else {
-            TextField(placeholder, text: $text)
+        Group {
+            if isSecure {
+                SecureField(placeholder, text: $text)
+            } else {
+                TextField(placeholder, text: $text)
+            }
         }
+        .focused($focused)
+        .keyboardType(keyboard)
+        .textContentType(contentType)
+        .textInputAutocapitalization(.never)
+        .autocorrectionDisabled()
+        .onSubmit(run)
     }
 
-    private func runChangeCredentials(_ change: @escaping () async throws -> Void) {
+    private func run() {
+        let value = isSecure ? text : text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !isWorking, isValid(value) else { return }
+        perform { try await submit(value) }
+    }
+
+    private func perform(_ work: @escaping () async throws -> Void) {
         guard !isWorking else { return }
         isWorking = true
         errorText = nil
         Task {
             do {
-                try await change()
-            } catch let error as TelegramError {
-                errorText = error.message
-            } catch {
-                errorText = "Couldn't clear the saved details. Try again."
-            }
-            isWorking = false
-        }
-    }
-
-    private func runResend() {
-        guard let resend, !isWorking else { return }
-        isWorking = true
-        errorText = nil
-        Task {
-            do {
-                try await resend.action()
-            } catch let error as TelegramError {
-                errorText = error.message
-            } catch {
-                errorText = "Something went wrong. Try again."
-            }
-            isWorking = false
-        }
-    }
-
-    private func run() {
-        let value = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !isWorking, isValid(value) else { return }
-        isWorking = true
-        errorText = nil
-        Task {
-            do {
-                try await submit(value)
+                try await work()
             } catch let error as TelegramError {
                 errorText = error.message
             } catch {
@@ -125,37 +86,59 @@ struct LoginFieldStep: View {
         }
     }
 }
+
+/// A quiet extra action under the main button, such as "Use different API details".
+struct ExtraAction: Identifiable {
+    let title: String
+    let action: () async throws -> Void
+    var id: String { title }
+}
+
+/// A "Resend code" action that unlocks at `availableAt`.
+struct ResendOption {
+    let availableAt: Date
+    let action: () async throws -> Void
+}
+
 struct PhoneStepView: View {
     let telegram: TelegramService
+    let useQr: () async throws -> Void
 
     var body: some View {
         LoginFieldStep(
-            title: "Your phone",
-            message:
-                "Enter your phone number with the country code, like +1 555 123 4567. Telegram will send you a code.",
+            title: "Your number",
+            subtitle: "Include the country code.",
             placeholder: "+1 555 123 4567",
             buttonTitle: "Send code",
             keyboard: .phonePad,
             contentType: .telephoneNumber,
-            changeCredentials: { try await telegram.useDifferentCredentials() },
+            extras: [
+                ExtraAction(title: "Log in with QR code", action: useQr),
+                ExtraAction(
+                    title: "Use different API details", action: { try await telegram.useDifferentCredentials() }),
+            ],
             isValid: { $0.contains(where: \.isNumber) },
             submit: { try await telegram.submitPhone($0) }
         )
     }
 }
+
 struct CodeStepView: View {
     @ObservedObject var telegram: TelegramService
 
     var body: some View {
         LoginFieldStep(
             title: "Enter the code",
-            message: telegram.codeDelivery?.method.explanation ?? "Telegram sent you a login code. Type it here.",
+            subtitle: telegram.codeDelivery?.method.explanation,
             placeholder: "Code",
             buttonTitle: "Continue",
             keyboard: .numberPad,
             contentType: .oneTimeCode,
             resend: resendOption,
-            changeCredentials: { try await telegram.useDifferentCredentials() },
+            extras: [
+                ExtraAction(
+                    title: "Use different API details", action: { try await telegram.useDifferentCredentials() })
+            ],
             isValid: { (5...6).contains($0.count) && $0.allSatisfy { $0.isASCII && $0.isNumber } },
             submit: { try await telegram.submitCode($0) }
         )
@@ -167,18 +150,13 @@ struct CodeStepView: View {
     }
 }
 
-/// A "Resend code" button that unlocks at `availableAt`.
-struct ResendOption {
-    let availableAt: Date
-    let action: () async throws -> Void
-}
 struct PasswordStepView: View {
     let telegram: TelegramService
 
     var body: some View {
         LoginFieldStep(
             title: "Password",
-            message: "Your account has two-step verification. Enter your Telegram password.",
+            subtitle: "Two-step verification.",
             placeholder: "Password",
             buttonTitle: "Continue",
             isSecure: true,
