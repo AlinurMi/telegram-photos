@@ -100,6 +100,7 @@ final class TelegramService: ObservableObject {
     private let rootDirectory: URL?
     private let sendTracker = SendTracker()
     private var cachedMaxFileSize: Int64?
+    private var isResettingCredentials = false
     private var manager: TDLibClientManager?
     private var client: TDLibClient?
     private var updates: AsyncStream<AuthorizationState>.Continuation?
@@ -186,6 +187,23 @@ final class TelegramService: ObservableObject {
         try await perform { _ = try await $0.checkAuthenticationPassword(password: password) }
     }
 
+    /// Forgets the saved API ID and hash and returns to the credentials screen. For use before login finishes.
+    func useDifferentCredentials() async throws {
+        try keychain.setString(nil, for: KeychainStore.Key.apiId)
+        try keychain.setString(nil, for: KeychainStore.Key.apiHash)
+        guard client != nil else {
+            publish(.needsCredentials)
+            return
+        }
+        isResettingCredentials = true
+        do {
+            try await perform { _ = try await $0.close() }
+        } catch {
+            isResettingCredentials = false
+            throw error
+        }
+    }
+
     /// Logs out of Telegram and deletes TDLib's local data.
     func logOut() async throws {
         guard client != nil else {
@@ -244,8 +262,14 @@ final class TelegramService: ObservableObject {
             client = nil
             cachedMaxFileSize = nil
             sendTracker.failPending(with: UploadError(kind: .authLost, message: "telegramClosed"))
-            publish(.loggedOut)
+            if isResettingCredentials {
+                isResettingCredentials = false
+                publish(.needsCredentials)
+            } else {
+                publish(.loggedOut)
+            }
         default:
+            guard !isResettingCredentials else { return }
             publish(AuthStep.step(forStateName: name))
         }
     }

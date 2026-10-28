@@ -10,6 +10,7 @@ struct LoginFieldStep: View {
     var keyboard: UIKeyboardType = .default
     var contentType: UITextContentType?
     var resend: ResendOption?
+    var changeCredentials: (() async throws -> Void)?
     let isValid: (String) -> Bool
     let submit: (String) async throws -> Void
 
@@ -56,6 +57,12 @@ struct LoginFieldStep: View {
                     }
                 }
             }
+            if let changeCredentials {
+                Section {
+                    Button("Use different API details") { runChangeCredentials(changeCredentials) }
+                        .disabled(isWorking)
+                }
+            }
         }
         .navigationTitle(title)
         .onAppear { focused = true }
@@ -66,6 +73,22 @@ struct LoginFieldStep: View {
             SecureField(placeholder, text: $text)
         } else {
             TextField(placeholder, text: $text)
+        }
+    }
+
+    private func runChangeCredentials(_ change: @escaping () async throws -> Void) {
+        guard !isWorking else { return }
+        isWorking = true
+        errorText = nil
+        Task {
+            do {
+                try await change()
+            } catch let error as TelegramError {
+                errorText = error.message
+            } catch {
+                errorText = "Couldn't clear the saved details. Try again."
+            }
+            isWorking = false
         }
     }
 
@@ -114,6 +137,7 @@ struct PhoneStepView: View {
             buttonTitle: "Send code",
             keyboard: .phonePad,
             contentType: .telephoneNumber,
+            changeCredentials: { try await telegram.useDifferentCredentials() },
             isValid: { $0.contains(where: \.isNumber) },
             submit: { try await telegram.submitPhone($0) }
         )
@@ -131,6 +155,7 @@ struct CodeStepView: View {
             keyboard: .numberPad,
             contentType: .oneTimeCode,
             resend: resendOption,
+            changeCredentials: { try await telegram.useDifferentCredentials() },
             isValid: { (5...6).contains($0.count) && $0.allSatisfy { $0.isASCII && $0.isNumber } },
             submit: { try await telegram.submitCode($0) }
         )
