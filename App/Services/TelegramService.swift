@@ -3,6 +3,7 @@ import Security
 import SyncCore
 /// Where the Telegram login stands. The setup screens show one view per case.
 import TDLibKit
+import UIKit
 
 /// Owns the one TDLib client of the process and publishes the login state.
 ///
@@ -16,6 +17,8 @@ enum AuthStep: Equatable, Sendable {
     case waitingForPhone
     case waitingForCode
     case waitingForPassword
+    /// Waiting for another logged-in device to scan the QR code that encodes `link`. Never log the link.
+    case waitingForQr(link: String)
     case ready
     /// Telegram asked for a step this app can't do (e.g. email login). `name` is the TDLib state name.
     case unsupported(String)
@@ -24,6 +27,8 @@ enum AuthStep: Equatable, Sendable {
     case failed(String)
 
     /// Maps a TDLib authorization state name (e.g. `authorizationStateWaitCode`) to a step.
+    ///
+    /// The QR step needs its link, so `TelegramService` builds `.waitingForQr` itself.
     static func step(forStateName name: String) -> AuthStep {
         switch name {
         case "authorizationStateWaitTdlibParameters":
@@ -63,11 +68,31 @@ extension AuthorizationState {
         }
     }
 }
+
+extension AuthenticationCodeType {
+    /// The case name only; the payloads can hold the phone number.
+    fileprivate var typeName: String {
+        switch self {
+        case .authenticationCodeTypeTelegramMessage: return "authenticationCodeTypeTelegramMessage"
+        case .authenticationCodeTypeSms: return "authenticationCodeTypeSms"
+        case .authenticationCodeTypeSmsWord: return "authenticationCodeTypeSmsWord"
+        case .authenticationCodeTypeSmsPhrase: return "authenticationCodeTypeSmsPhrase"
+        case .authenticationCodeTypeCall: return "authenticationCodeTypeCall"
+        case .authenticationCodeTypeFlashCall: return "authenticationCodeTypeFlashCall"
+        case .authenticationCodeTypeMissedCall: return "authenticationCodeTypeMissedCall"
+        case .authenticationCodeTypeFragment: return "authenticationCodeTypeFragment"
+        case .authenticationCodeTypeFirebaseAndroid: return "authenticationCodeTypeFirebaseAndroid"
+        case .authenticationCodeTypeFirebaseIos: return "authenticationCodeTypeFirebaseIos"
+        }
+    }
+}
 @MainActor
 final class TelegramService: ObservableObject {
     static let shared = TelegramService()
 
     @Published private(set) var step: AuthStep = .starting
+    /// How the latest login code was sent. Only set while the step is `.waitingForCode`.
+    @Published private(set) var codeDelivery: CodeDelivery?
 
     private struct Credentials {
         let apiId: Int
@@ -80,6 +105,7 @@ final class TelegramService: ObservableObject {
     private let rootDirectory: URL?
     private let sendTracker = SendTracker()
     private var cachedMaxFileSize: Int64?
+    private var isResettingCredentials = false
     private var manager: TDLibClientManager?
     private var client: TDLibClient?
     private var updates: AsyncStream<AuthorizationState>.Continuation?
@@ -151,6 +177,16 @@ final class TelegramService: ObservableObject {
         try await perform { _ = try await $0.setAuthenticationPhoneNumber(phoneNumber: phone, settings: nil) }
     }
 
+    /// Switches to QR login: another logged-in device scans the code instead of typing a login code.
+    func requestQrLogin() async throws {
+        try await perform { _ = try await $0.requestQrCodeAuthentication(otherUserIds: []) }
+    }
+
+    /// Asks Telegram to send the code another way. Only works once `codeDelivery.resendAfter` has passed.
+    func resendCode() async throws {
+        try await perform { _ = try await $0.resendAuthenticationCode(reason: .resendCodeReasonUserRequest) }
+    }
+
     /// Checks the login code.
     func submitCode(_ code: String) async throws {
         try await perform { _ = try await $0.checkAuthenticationCode(code: code) }
@@ -159,6 +195,23 @@ final class TelegramService: ObservableObject {
     /// Checks the two-step verification password.
     func submitPassword(_ password: String) async throws {
         try await perform { _ = try await $0.checkAuthenticationPassword(password: password) }
+    }
+
+    /// Forgets the saved API ID and hash and returns to the credentials screen. For use before login finishes.
+    func useDifferentCredentials() async throws {
+        try keychain.setString(nil, for: KeychainStore.Key.apiId)
+        try keychain.setString(nil, for: KeychainStore.Key.apiHash)
+        guard client != nil else {
+            publish(.needsCredentials)
+            return
+        }
+        isResettingCredentials = true
+        do {
+            try await perform { _ = try await $0.close() }
+        } catch {
+            isResettingCredentials = false
+            throw error
+        }
     }
 
     /// Logs out of Telegram and deletes TDLib's local data.
@@ -202,6 +255,18 @@ final class TelegramService: ObservableObject {
         switch state {
         case .authorizationStateWaitTdlibParameters:
             await sendParameters()
+        case .authorizationStateWaitCode(let waitCode):
+            let info = waitCode.codeInfo
+            let method = CodeDelivery.Method(typeName: info.type.typeName)
+            logger.info("Code delivery: \(info.type.typeName), next: \(info.nextType != nil)", category: "telegram")
+            codeDelivery = CodeDelivery(
+                method: method,
+                canResend: info.nextType != nil,
+                resendAfter: Date().addingTimeInterval(TimeInterval(info.timeout))
+            )
+            publish(.waitingForCode)
+        case .authorizationStateWaitOtherDeviceConfirmation(let confirmation):
+            publish(.waitingForQr(link: confirmation.link))
         case .authorizationStateClosed:
             updates?.finish()
             updates = nil
@@ -209,8 +274,14 @@ final class TelegramService: ObservableObject {
             client = nil
             cachedMaxFileSize = nil
             sendTracker.failPending(with: UploadError(kind: .authLost, message: "telegramClosed"))
-            publish(.loggedOut)
+            if isResettingCredentials {
+                isResettingCredentials = false
+                publish(.needsCredentials)
+            } else {
+                publish(.loggedOut)
+            }
         default:
+            guard !isResettingCredentials else { return }
             publish(AuthStep.step(forStateName: name))
         }
     }
@@ -233,10 +304,10 @@ final class TelegramService: ObservableObject {
                 applicationVersion: Self.appVersion,
                 databaseDirectory: directories.database.path,
                 databaseEncryptionKey: key,
-                deviceModel: "iPhone",
+                deviceModel: Self.deviceModel,
                 filesDirectory: directories.files.path,
                 systemLanguageCode: "en",
-                systemVersion: nil,
+                systemVersion: UIDevice.current.systemVersion,
                 useChatInfoDatabase: true,
                 useFileDatabase: true,
                 useMessageDatabase: false,
@@ -291,6 +362,16 @@ final class TelegramService: ObservableObject {
         let key = Data(bytes)
         try keychain.set(key, for: KeychainStore.Key.dbKey)
         return key
+    }
+
+    /// The hardware identifier (for example `iPhone17,1`); Telegram shows it in the device list.
+    private static var deviceModel: String {
+        var info = utsname()
+        uname(&info)
+        let machine = withUnsafeBytes(of: &info.machine) { buffer in
+            String(decoding: buffer.prefix { $0 != 0 }, as: UTF8.self)
+        }
+        return machine.isEmpty ? "iPhone" : machine
     }
 
     private static var appVersion: String {
@@ -433,6 +514,23 @@ extension TelegramService {
             let me = try await client.getMe()
             let chat = try await client.createPrivateChat(force: true, userId: me.id)
             return ChatSummary(id: chat.id, title: Self.savedMessagesTitle, kind: .savedMessages)
+        }
+    }
+
+    /// Sends a short greeting to Saved Messages. Used by the setup flow to prove the login works.
+    func sendTestMessage() async throws {
+        let chat = try await savedMessagesChat()
+        try await perform { client in
+            let text = FormattedText(entities: [], text: "Hello from TelegramPhotos 👋")
+            _ = try await client.sendMessage(
+                chatId: chat.id,
+                inputMessageContent: .inputMessageText(
+                    InputMessageText(clearDraft: false, linkPreviewOptions: nil, text: text)),
+                options: nil,
+                replyMarkup: nil,
+                replyTo: nil,
+                topicId: nil
+            )
         }
     }
 
