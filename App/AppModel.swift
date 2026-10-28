@@ -100,6 +100,11 @@ final class AppModel {
         lastReport = nil
     }
 
+    /// Stops showing "Log in again" once the owner has gone back to log in.
+    func clearAuthLost() {
+        if phase == .blocked(.authLost) { phase = .idle }
+    }
+
     /// A stop because of the clock or a cancel needs nothing from the owner, so it reads as idle.
     static func phase(after report: SyncReport) -> Phase {
         switch report.blockedBy {

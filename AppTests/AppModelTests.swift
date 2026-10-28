@@ -70,6 +70,23 @@ final class AppModelTests: XCTestCase {
         model.restore(report: old)
         XCTAssertEqual(model.lastReport, newer)
     }
+
+    func testClearAuthLostOnlyClearsTheLoginBlock() {
+        func finished(_ reason: BlockReason) -> SyncEvent {
+            .runFinished(
+                SyncReport(
+                    trigger: .manual, startedAt: Date(), endedAt: Date(),
+                    uploaded: 0, failed: 0, skipped: 0, remainingEligible: 0, blockedBy: reason))
+        }
+        let model = AppModel()
+        model.apply(finished(.noNetwork))
+        model.clearAuthLost()
+        XCTAssertEqual(model.phase, .blocked(.noNetwork))
+
+        model.apply(finished(.authLost))
+        model.clearAuthLost()
+        XCTAssertEqual(model.phase, .idle)
+    }
 }
 
 final class AppSettingsTests: XCTestCase {

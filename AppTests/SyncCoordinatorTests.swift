@@ -168,6 +168,21 @@ final class SyncCoordinatorTests: XCTestCase {
         XCTAssertEqual(fixture.model.phase, .blocked(.authLost))
     }
 
+    func testReturnToLoginReopensSetupAndKeepsTheBaseline() async throws {
+        let fixture = try makeFixture(readinessError: UploadError(kind: .authLost, message: "notLoggedIn"))
+        try await fixture.coordinator.finishSetup()
+        let baseline = try await fixture.store.meta(.baselineDate)
+        _ = await fixture.coordinator.sync(trigger: .manual)
+        XCTAssertEqual(fixture.model.phase, .blocked(.authLost))
+
+        await fixture.coordinator.returnToLogin()
+
+        XCTAssertFalse(fixture.settings.setupCompleted)
+        XCTAssertEqual(fixture.model.phase, .idle)
+        let after = try await fixture.store.meta(.baselineDate)
+        XCTAssertEqual(after, baseline)
+    }
+
     func testOnlyOneRunAtATime() async throws {
         let gate = Gate()
         let fixture = try makeFixture(gate: gate)
