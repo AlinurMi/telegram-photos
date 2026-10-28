@@ -120,6 +120,11 @@ final class BackgroundSync {
         syncNowState = .idle
     }
 
+    /// Asks iOS for the overnight run that uploads older items while charging.
+    ///
+    /// Does nothing yet; the overnight task isn't built.
+    func scheduleBackfill() {}
+
     /// `nil` means another run was already going, which the task leaves alone.
     nonisolated static func succeeded(_ report: SyncReport?) -> Bool {
         guard let report else { return true }
