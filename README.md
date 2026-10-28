@@ -7,7 +7,7 @@ A small personal iPhone app that backs up photos and videos from the Photos libr
 ## What it does
 
 - Uploads every photo and video as a **file (document)**, so nothing is recompressed. That covers HEIC, ProRAW/DNG, HEVC/ProRes and Live Photo videos.
-- **One-way, append-only.** Deleting or editing a photo on the phone never touches what's already in Telegram.
+- **One-way, append-only.** Deleting or editing a photo on the phone never touches what's already in Telegram. An optional setting, "Re-send edited photos", uploads a new copy tagged `#edit` when you edit a photo that's already backed up.
 - Captions carry the date taken, the original filename, the location (place name plus a maps link) and searchable hashtags (`#y2026 #m10`).
 - Syncs whenever it's allowed to run:
   - **Sync Now**, with progress in the Dynamic Island and on the Lock Screen

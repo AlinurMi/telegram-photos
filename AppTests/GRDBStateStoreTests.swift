@@ -1,3 +1,4 @@
+import SQLite3
 import SyncCore
 import XCTest
 
@@ -115,7 +116,8 @@ final class GRDBStateStoreTests: XCTestCase {
             nextAttemptAt: Date(timeIntervalSince1970: 1_700_000_100),
             lastError: "boom",
             messageId: 9_000_000_000,
-            uploadedAt: Date(timeIntervalSince1970: 1_700_000_200)
+            uploadedAt: Date(timeIntervalSince1970: 1_700_000_200),
+            assetModifiedAt: Date(timeIntervalSince1970: 1_700_000_000.25)
         )
         try await store.insert([full, unit("Y|primary", asset: "Y")])
         let stored = try await store.allUnits()
@@ -127,6 +129,7 @@ final class GRDBStateStoreTests: XCTestCase {
         changed.skipReason = nil
         changed.location = nil
         changed.lastError = nil
+        changed.assetModifiedAt = nil
         try await store.update(changed)
         let updated = try await store.allUnits()
         XCTAssertEqual(updated.first { $0.id == full.id }, changed)
@@ -146,6 +149,46 @@ final class GRDBStateStoreTests: XCTestCase {
         XCTAssertEqual(baseline, "x")
         let place = try await reopened.cachedPlace(key: "k")
         XCTAssertEqual(place, "Osh")
+    }
+
+    func testUpgradesAVersionOneDatabase() async throws {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let statements = [
+            "CREATE TABLE unit ("
+                + "id TEXT PRIMARY KEY NOT NULL, assetLocalIdentifier TEXT NOT NULL, "
+                + "assetTag TEXT NOT NULL, role TEXT NOT NULL, resourceKind TEXT NOT NULL, "
+                + "uploadFilename TEXT NOT NULL, byteSize INTEGER, creationDate REAL, "
+                + "isBackfill INTEGER NOT NULL, isScreenshotOrRecording INTEGER NOT NULL, "
+                + "latitude REAL, longitude REAL, status TEXT NOT NULL, skipReason TEXT, "
+                + "attempts INTEGER NOT NULL, nextAttemptAt REAL, lastError TEXT, "
+                + "messageId INTEGER, uploadedAt REAL)",
+            "CREATE TABLE meta (key TEXT PRIMARY KEY NOT NULL, value TEXT)",
+            "CREATE TABLE place (key TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL)",
+            "CREATE TABLE grdb_migrations (identifier TEXT NOT NULL PRIMARY KEY)",
+            "INSERT INTO grdb_migrations (identifier) VALUES ('v1')",
+            "INSERT INTO unit (id, assetLocalIdentifier, assetTag, role, resourceKind, uploadFilename, "
+                + "isBackfill, isScreenshotOrRecording, status, attempts) "
+                + "VALUES ('A|primary', 'A', 'tag', 'primary', 'photo', 'A.HEIC', 0, 0, 'done', 0)",
+        ]
+        var handle: OpaquePointer?
+        let path = directory.appendingPathComponent("state.sqlite").path
+        XCTAssertEqual(sqlite3_open(path, &handle), SQLITE_OK)
+        for statement in statements {
+            XCTAssertEqual(sqlite3_exec(handle, statement, nil, nil, nil), SQLITE_OK, statement)
+        }
+        sqlite3_close(handle)
+
+        let store = try GRDBStateStore(directory: directory)
+        var units = try await store.allUnits()
+        XCTAssertEqual(units.map(\.id), ["A|primary"])
+        XCTAssertEqual(units.first?.status, .done)
+        XCTAssertNil(units.first?.assetModifiedAt)
+
+        var changed = try XCTUnwrap(units.first)
+        changed.assetModifiedAt = Date(timeIntervalSince1970: 1_700_000_000)
+        try await store.update(changed)
+        units = try await store.allUnits()
+        XCTAssertEqual(units.first, changed)
     }
 
     func testStoresPlaceNameOverwrite() async throws {
