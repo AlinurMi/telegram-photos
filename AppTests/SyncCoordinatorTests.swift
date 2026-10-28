@@ -76,9 +76,14 @@ private struct StubPlaces: PlaceResolver {
 
 private struct StubReadiness: TelegramReadiness {
     var error: UploadError?
+    var logOutError: UploadError?
 
     func waitUntilReady(timeout: TimeInterval) async throws {
         if let error { throw error }
+    }
+
+    func logOut() async throws {
+        if let logOutError { throw logOutError }
     }
 }
 
@@ -112,7 +117,11 @@ final class SyncCoordinatorTests: XCTestCase {
         let settings: AppSettings
     }
 
-    private func makeFixture(gate: Gate? = nil, readinessError: UploadError? = nil) throws -> Fixture {
+    private func makeFixture(
+        gate: Gate? = nil,
+        readinessError: UploadError? = nil,
+        logOutError: UploadError? = nil
+    ) throws -> Fixture {
         let directory = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("SyncCoordinatorTests-\(UUID().uuidString)", isDirectory: true)
         let suiteName = "SyncCoordinatorTests-\(UUID().uuidString)"
@@ -127,7 +136,7 @@ final class SyncCoordinatorTests: XCTestCase {
         let coordinator = SyncCoordinator(
             library: StubLibrary(gate: gate),
             uploader: StubUploader(),
-            readiness: StubReadiness(error: readinessError),
+            readiness: StubReadiness(error: readinessError, logOutError: logOutError),
             store: store,
             environment: StubEnvironment(),
             places: StubPlaces(),
@@ -277,5 +286,78 @@ final class SyncCoordinatorTests: XCTestCase {
         XCTAssertNil(baseline)
         XCTAssertEqual(fixture.model.counts, StatusCounts())
         XCTAssertNil(fixture.model.lastReport)
+    }
+
+    func testLogOutForgetsTheDestinationAndReopensSetup() async throws {
+        let fixture = try makeFixture()
+        fixture.settings.destinationChatId = 42
+        fixture.settings.destinationTitle = "Backup"
+        try await fixture.coordinator.finishSetup()
+        let baseline = try await fixture.store.meta(.baselineDate)
+
+        try await fixture.coordinator.logOut()
+
+        XCTAssertFalse(fixture.settings.setupCompleted)
+        XCTAssertNil(fixture.settings.destinationChatId)
+        XCTAssertNil(fixture.settings.destinationTitle)
+        let after = try await fixture.store.meta(.baselineDate)
+        XCTAssertEqual(after, baseline)
+    }
+
+    func testFailedLogOutKeepsEverything() async throws {
+        let fixture = try makeFixture(logOutError: UploadError(kind: .transient, message: "offline"))
+        fixture.settings.destinationChatId = 42
+        try await fixture.coordinator.finishSetup()
+
+        do {
+            try await fixture.coordinator.logOut()
+            XCTFail("logOut should pass the error on")
+        } catch {
+            XCTAssertEqual((error as? UploadError)?.kind, .transient)
+        }
+
+        XCTAssertTrue(fixture.settings.setupCompleted)
+        XCTAssertEqual(fixture.settings.destinationChatId, 42)
+        let third = await fixture.coordinator.sync(trigger: .manual)
+        XCTAssertNotNil(third, "a failed logout must not leave the coordinator busy")
+    }
+
+    func testLogOutRefusesDuringARun() async throws {
+        let gate = Gate()
+        let fixture = try makeFixture(gate: gate)
+        try await fixture.coordinator.finishSetup()
+
+        let run = Task { await fixture.coordinator.sync(trigger: .manual) }
+        await gate.waitUntilEntered()
+        do {
+            try await fixture.coordinator.logOut()
+            XCTFail("logOut should refuse while a run is active")
+        } catch {
+            XCTAssertEqual(error as? CoordinatorError, .busy)
+        }
+        await gate.release()
+        _ = await run.value
+
+        XCTAssertTrue(fixture.settings.setupCompleted)
+    }
+
+    func testAdvancedDetailsShowBaselineAndPrettyReport() async throws {
+        let fixture = try makeFixture()
+        let empty = await fixture.coordinator.advancedDetails()
+        XCTAssertEqual(empty, AdvancedDetails())
+
+        try await fixture.store.setMeta(.baselineDate, "2026-10-27T12:00:00Z")
+        try await fixture.store.setMeta(.lastReportJSON, #"{"uploaded":3,"failed":0}"#)
+
+        let details = await fixture.coordinator.advancedDetails()
+
+        XCTAssertEqual(details.baselineDate, ISO8601DateFormatter().date(from: "2026-10-27T12:00:00Z"))
+        XCTAssertEqual(details.lastReportJSON, "{\n  \"failed\" : 0,\n  \"uploaded\" : 3\n}")
+    }
+
+    func testPrettyJSONLeavesOtherTextAlone() {
+        XCTAssertEqual(SyncCoordinator.prettyJSON("not json"), "not json")
+        XCTAssertEqual(
+            SyncCoordinator.prettyJSON(#"{"b":1,"a":[true]}"#), "{\n  \"a\" : [\n    true\n  ],\n  \"b\" : 1\n}")
     }
 }

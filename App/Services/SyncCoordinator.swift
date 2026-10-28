@@ -1,10 +1,13 @@
 import Foundation
 import SyncCore
 
-/// Waits until Telegram is logged in. `TelegramService` is the real one; tests use a stand-in.
+/// The Telegram login as the coordinator sees it. `TelegramService` is the real one; tests use a stand-in.
 protocol TelegramReadiness: Sendable {
     /// Returns once logged in. Throws `UploadError` (`.authLost` if the owner must log in again).
     func waitUntilReady(timeout: TimeInterval) async throws
+
+    /// Logs out of Telegram and deletes its local data.
+    func logOut() async throws
 }
 
 extension TelegramService: TelegramReadiness {}
@@ -13,6 +16,14 @@ extension TelegramService: TelegramReadiness {}
 enum CoordinatorError: Error, Equatable {
     /// A sync run or another maintenance action is already in progress.
     case busy
+}
+
+/// The raw values shown in Settings → Advanced.
+struct AdvancedDetails: Equatable, Sendable {
+    /// When setup finished; only photos taken after it count as new.
+    var baselineDate: Date?
+    /// The last run's report, pretty-printed.
+    var lastReportJSON: String?
 }
 
 /// Passes each engine event on to every observer, in order.
@@ -199,6 +210,43 @@ actor SyncCoordinator {
         try await store.resetAll()
         await model.clearReport()
         await refreshState()
+    }
+
+    /// Logs out of Telegram and shows setup again. The sync state stays.
+    ///
+    /// The destination is forgotten because another account may log in next; setup asks for it again.
+    func logOut() async throws {
+        try beginExclusive()
+        defer { isBusy = false }
+        try await readiness.logOut()
+        // Clear the destination first so the setup flow can't finish on its own before the logout lands.
+        settings.destinationChatId = nil
+        settings.destinationTitle = nil
+        settings.setupCompleted = false
+        await model.clearAuthLost()
+        logger.info("Logged out of Telegram", category: "setup")
+    }
+
+    /// Reads the baseline date and the last report for Settings → Advanced.
+    func advancedDetails() async -> AdvancedDetails {
+        do {
+            let baseline = try await store.meta(.baselineDate).flatMap(Self.parseISO8601)
+            let report = try await store.meta(.lastReportJSON).map(Self.prettyJSON)
+            return AdvancedDetails(baselineDate: baseline, lastReportJSON: report)
+        } catch {
+            logger.error("Could not read the sync details: \(type(of: error))", category: "sync")
+            return AdvancedDetails()
+        }
+    }
+
+    /// Re-indents JSON with sorted keys; text that isn't JSON comes back unchanged.
+    static func prettyJSON(_ text: String) -> String {
+        guard
+            let object = try? JSONSerialization.jsonObject(with: Data(text.utf8)),
+            let data = try? JSONSerialization.data(withJSONObject: object, options: [.prettyPrinted, .sortedKeys]),
+            let pretty = String(data: data, encoding: .utf8)
+        else { return text }
+        return pretty
     }
 
     private func beginExclusive() throws {
