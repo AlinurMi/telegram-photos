@@ -71,6 +71,9 @@ struct SettingsView: View {
                 Label("Share logs", systemImage: "square.and.arrow.up")
             }
         }
+        Button("Schedule test notification in 10 s") {
+            Task { resultText = await SyncNotifications.shared.scheduleTest().message }
+        }
         actionButton(.rebuild, title: "Rebuild from channel", isBusy: isBusy)
         actionButton(.retryFailed, title: "Retry failed (\(model.counts.failed.formatted()))", isBusy: isBusy)
             .disabled(model.counts.failed == 0)

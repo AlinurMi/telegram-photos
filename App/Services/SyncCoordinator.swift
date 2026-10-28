@@ -67,7 +67,8 @@ actor SyncCoordinator {
     private var isBusy = false
     private var currentRun: Task<SyncReport, Never>?
 
-    /// Builds the engine once from the adapters. `model` is always the first observer of its events.
+    /// Builds the engine once from the adapters. `model` is always the first observer of its events,
+    /// followed by `observers`.
     /// `afterRun` is called at the end of every sync run (the app schedules the overnight sync there).
     init(
         library: PhotoLibrary,
@@ -82,6 +83,7 @@ actor SyncCoordinator {
         settings: AppSettings,
         model: AppModel,
         logger: FileLogger = .shared,
+        observers: [any SyncObserver] = [],
         afterRun: @escaping @Sendable () -> Void = {}
     ) {
         self.store = store
@@ -93,6 +95,7 @@ actor SyncCoordinator {
         self.logger = logger
         self.afterRun = afterRun
         bus.add(model)
+        for observer in observers { bus.add(observer) }
         engine = SyncEngine(
             library: library,
             uploader: uploader,
@@ -128,6 +131,7 @@ actor SyncCoordinator {
             workDirectory: FileManager.default.temporaryDirectory.appendingPathComponent("uploads", isDirectory: true),
             settings: .shared,
             model: .shared,
+            observers: [SyncNotifications.shared],
             afterRun: { BackgroundSync.scheduleBackfill() })
     }
 
