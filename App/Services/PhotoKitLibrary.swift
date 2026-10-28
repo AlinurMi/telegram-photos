@@ -23,7 +23,20 @@ struct PhotoKitLibrary: PhotoLibrary {
         Self.authorization(from: await PHPhotoLibrary.requestAuthorization(for: .readWrite))
     }
 
+    /// Logs whether the read worked, so runs with the phone locked can be checked in the logs.
     func allAssets() async throws -> [AssetDescriptor] {
+        do {
+            let result = try readAllAssets()
+            logger.info("Library read: \(result.count) items", category: "photos")
+            return result
+        } catch {
+            let nsError = error as NSError
+            logger.warning("Library read failed: \(nsError.domain) \(nsError.code)", category: "photos")
+            throw error
+        }
+    }
+
+    private func readAllAssets() throws -> [AssetDescriptor] {
         let options = Self.fetchOptions(includeAllBurstAssets: false)
         options.predicate = NSPredicate(
             format: "mediaType == %d OR mediaType == %d",

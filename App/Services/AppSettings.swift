@@ -10,6 +10,8 @@ final class AppSettings: @unchecked Sendable {
     static let includeScreenshotsKey = "includeScreenshots"
     static let resendEditsKey = "resendEdits"
     static let setupCompletedKey = "setupCompleted"
+    static let intentBudgetSecondsKey = "intentBudgetSeconds"
+    static let defaultIntentBudgetSeconds: TimeInterval = 25
 
     private let defaults: UserDefaults
 
@@ -34,6 +36,12 @@ final class AppSettings: @unchecked Sendable {
     var setupCompleted: Bool {
         get { defaults.bool(forKey: Self.setupCompletedKey) }
         set { defaults.set(newValue, forKey: Self.setupCompletedKey) }
+    }
+
+    /// How long a Shortcuts-triggered sync may run, in seconds. 25 unless a positive value was stored.
+    var intentBudgetSeconds: TimeInterval {
+        let value = defaults.double(forKey: Self.intentBudgetSecondsKey)
+        return value > 0 ? value : Self.defaultIntentBudgetSeconds
     }
 
     /// The chat the backup goes to, if one was chosen.
