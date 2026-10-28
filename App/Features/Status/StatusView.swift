@@ -82,8 +82,7 @@ struct StatusView: View {
     }
 
     private func syncNow() {
-        let allowCellular = model.allowCellularThisRun
-        Task { _ = await SyncCoordinator.shared.sync(trigger: .manual, deadline: nil, allowCellular: allowCellular) }
+        BackgroundSync.shared.startSyncNow(allowCellular: model.allowCellularThisRun)
     }
 }
 

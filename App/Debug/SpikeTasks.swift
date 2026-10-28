@@ -1,18 +1,9 @@
 import ActivityKit
-import BackgroundTasks
 import Foundation
 import Observation
 
-/// Task identifiers come from Info.plist so they follow whatever the build declares (D4).
+/// Finds the embedded widget extension, for the install info.
 enum SpikeIdentifiers {
-    static var permitted: [String] {
-        Bundle.main.object(forInfoDictionaryKey: "BGTaskSchedulerPermittedIdentifiers") as? [String] ?? []
-    }
-
-    static var syncNow: String? {
-        permitted.first { $0.hasSuffix(".syncnow") }
-    }
-
     static var widgetBundleID: String? {
         guard let plugIns = Bundle.main.builtInPlugInsURL,
             let urls = try? FileManager.default.contentsOfDirectory(at: plugIns, includingPropertiesForKeys: nil)
@@ -27,32 +18,9 @@ enum SpikeIdentifiers {
 final class SpikeModel {
     static let shared = SpikeModel()
 
-    var lastSubmitError: String?
-    var backgroundStatus = "Not started"
     var liveActivityStatus = "Not started"
 
     private var activity: Activity<SyncActivityAttributes>?
-
-    func submitBackgroundDemo() {
-        lastSubmitError = nil
-        guard let identifier = SpikeIdentifiers.syncNow else {
-            lastSubmitError = "No .syncnow identifier in Info.plist"
-            return
-        }
-        let request = BGContinuedProcessingTaskRequest(
-            identifier: identifier,
-            title: "Syncing photos",
-            subtitle: "About to start…"
-        )
-        request.strategy = .fail
-        do {
-            try BGTaskScheduler.shared.submit(request)
-            backgroundStatus = "Submitted, waiting for iOS to start it"
-        } catch {
-            lastSubmitError = String(describing: error)
-            backgroundStatus = "Submit failed"
-        }
-    }
 
     func startLiveActivityDemo() {
         guard ActivityAuthorizationInfo().areActivitiesEnabled else {
@@ -94,50 +62,5 @@ final class SpikeModel {
             ActivityContent(state: final, staleDate: nil),
             dismissalPolicy: .after(.now + 300))
         liveActivityStatus = "Finished"
-    }
-
-    func backgroundTaskStarted() {
-        backgroundStatus = "Started by iOS"
-    }
-
-    func backgroundTaskTick(_ n: Int) {
-        backgroundStatus = "Running \(n)/60"
-    }
-
-    func backgroundTaskEnded(success: Bool) {
-        backgroundStatus = success ? "Finished" : "Stopped early (cancelled or expired)"
-    }
-}
-
-enum SpikeTasks {
-    /// Registers the demo launch handler. Must be called before the app finishes launching.
-    static func registerSyncNow() {
-        guard let identifier = SpikeIdentifiers.syncNow else { return }
-        BGTaskScheduler.shared.register(forTaskWithIdentifier: identifier, using: nil) { task in
-            guard let task = task as? BGContinuedProcessingTask else { return }
-            run(task)
-        }
-    }
-
-    private static func run(_ task: BGContinuedProcessingTask) {
-        let work = Task { () -> Bool in
-            await SpikeModel.shared.backgroundTaskStarted()
-            let progress = task.progress
-            progress.totalUnitCount = 60
-            for n in 1...60 {
-                try? await Task.sleep(for: .seconds(1))
-                if Task.isCancelled { return false }
-                progress.completedUnitCount = Int64(n)
-                task.updateTitle("Syncing photos", subtitle: "\(n)/60")
-                await SpikeModel.shared.backgroundTaskTick(n)
-            }
-            return true
-        }
-        task.expirationHandler = { work.cancel() }
-        Task {
-            let success = await work.value
-            await SpikeModel.shared.backgroundTaskEnded(success: success)
-            task.setTaskCompleted(success: success)
-        }
     }
 }

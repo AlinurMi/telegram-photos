@@ -8,21 +8,14 @@ struct SpikeView: View {
         List {
             Section("Demos") {
                 Button("Demo Live Activity") { model.startLiveActivityDemo() }
-                Button("Demo background task") { model.submitBackgroundDemo() }
-                Button("Demo both") {
-                    model.startLiveActivityDemo()
-                    model.submitBackgroundDemo()
-                }
             }
             Section("Status") {
                 row("Live Activity", model.liveActivityStatus)
-                row("Background task", model.backgroundStatus)
-                row("Last submit error", model.lastSubmitError ?? "None")
             }
             Section("Install info") {
                 row("App bundle ID", Bundle.main.bundleIdentifier ?? "Unknown")
                 row("Widget bundle ID", SpikeIdentifiers.widgetBundleID ?? "Not found")
-                ForEach(SpikeIdentifiers.permitted, id: \.self) { identifier in
+                ForEach(BackgroundSync.permittedIdentifiers, id: \.self) { identifier in
                     row("Permitted task ID", identifier)
                 }
             }
