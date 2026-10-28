@@ -63,10 +63,12 @@ actor SyncCoordinator {
     private let workDirectory: URL
     private let logger: FileLogger
     private let bus = SyncEventBus()
+    private let afterRun: @Sendable () -> Void
     private var isBusy = false
     private var currentRun: Task<SyncReport, Never>?
 
     /// Builds the engine once from the adapters. `model` is always the first observer of its events.
+    /// `afterRun` is called at the end of every sync run (the app schedules the overnight sync there).
     init(
         library: PhotoLibrary,
         uploader: TelegramUploader,
@@ -79,7 +81,8 @@ actor SyncCoordinator {
         workDirectory: URL,
         settings: AppSettings,
         model: AppModel,
-        logger: FileLogger = .shared
+        logger: FileLogger = .shared,
+        afterRun: @escaping @Sendable () -> Void = {}
     ) {
         self.store = store
         self.readiness = readiness
@@ -88,6 +91,7 @@ actor SyncCoordinator {
         self.clock = clock
         self.workDirectory = workDirectory
         self.logger = logger
+        self.afterRun = afterRun
         bus.add(model)
         engine = SyncEngine(
             library: library,
@@ -123,7 +127,8 @@ actor SyncCoordinator {
             clock: SystemClock(),
             workDirectory: FileManager.default.temporaryDirectory.appendingPathComponent("uploads", isDirectory: true),
             settings: .shared,
-            model: .shared)
+            model: .shared,
+            afterRun: { BackgroundSync.scheduleBackfill() })
     }
 
     /// Also sends every sync event to `observer` (the Live Activity, a background task's progress).
@@ -145,6 +150,7 @@ actor SyncCoordinator {
         let report = await run.value
         currentRun = nil
         isBusy = false
+        afterRun()
         return report
     }
 

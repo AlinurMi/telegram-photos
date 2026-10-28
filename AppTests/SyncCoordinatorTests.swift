@@ -108,6 +108,23 @@ private final class EventRecorder: SyncObserver, @unchecked Sendable {
     }
 }
 
+private final class CallCounter: @unchecked Sendable {
+    private let lock = NSLock()
+    private var stored = 0
+
+    var count: Int {
+        lock.lock()
+        defer { lock.unlock() }
+        return stored
+    }
+
+    func increment() {
+        lock.lock()
+        stored += 1
+        lock.unlock()
+    }
+}
+
 @MainActor
 final class SyncCoordinatorTests: XCTestCase {
     private struct Fixture {
@@ -120,7 +137,8 @@ final class SyncCoordinatorTests: XCTestCase {
     private func makeFixture(
         gate: Gate? = nil,
         readinessError: UploadError? = nil,
-        logOutError: UploadError? = nil
+        logOutError: UploadError? = nil,
+        afterRun: @escaping @Sendable () -> Void = {}
     ) throws -> Fixture {
         let directory = URL(fileURLWithPath: NSTemporaryDirectory())
             .appendingPathComponent("SyncCoordinatorTests-\(UUID().uuidString)", isDirectory: true)
@@ -143,8 +161,23 @@ final class SyncCoordinatorTests: XCTestCase {
             clock: SystemClock(),
             workDirectory: directory.appendingPathComponent("uploads", isDirectory: true),
             settings: settings,
-            model: model)
+            model: model,
+            afterRun: afterRun)
         return Fixture(coordinator: coordinator, store: store, model: model, settings: settings)
+    }
+
+    func testEveryRunCallsAfterRun() async throws {
+        let counter = CallCounter()
+        let fixture = try makeFixture(
+            readinessError: UploadError(kind: .authLost, message: "notLoggedIn"),
+            afterRun: { counter.increment() })
+
+        _ = await fixture.coordinator.sync(trigger: .manual)
+        XCTAssertEqual(counter.count, 1)
+        _ = await fixture.coordinator.sync(trigger: .backgroundProcessing)
+        XCTAssertEqual(counter.count, 2)
+        _ = try? await fixture.coordinator.retryFailed()
+        XCTAssertEqual(counter.count, 2)
     }
 
     func testSyncWithNothingToDoReportsAndNotifiesObservers() async throws {

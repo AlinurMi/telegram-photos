@@ -87,4 +87,13 @@ final class BackgroundSyncTests: XCTestCase {
         XCTAssertFalse(BackgroundSync.succeeded(report(blockedBy: .cancelled)))
         XCTAssertFalse(BackgroundSync.succeeded(report(blockedBy: .noNetwork)))
     }
+
+    func testTaskIdentifiersAreFoundBySuffix() {
+        let identifiers = ["io.example.app.TEAM.backfill", "io.example.app.TEAM.syncnow"]
+        XCTAssertEqual(
+            BackgroundSync.identifier(endingWith: ".backfill", in: identifiers), "io.example.app.TEAM.backfill")
+        XCTAssertEqual(
+            BackgroundSync.identifier(endingWith: ".syncnow", in: identifiers), "io.example.app.TEAM.syncnow")
+        XCTAssertNil(BackgroundSync.identifier(endingWith: ".backfill", in: ["io.example.app.syncnow"]))
+    }
 }

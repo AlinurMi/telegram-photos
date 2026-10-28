@@ -24,6 +24,9 @@ struct TelegramPhotosApp: App {
                 .environment(AppModel.shared)
         }
         .onChange(of: scenePhase, initial: true) { _, phase in
+            if phase == .background {
+                BackgroundSync.scheduleBackfill()
+            }
             guard phase == .active, !didStartLaunchSync else { return }
             didStartLaunchSync = true
             Task { await SyncCoordinator.shared.syncOnLaunch() }
