@@ -1,12 +1,7 @@
 import Foundation
-
-/// A Keychain call failed. `status` is the raw `OSStatus` from the Security framework.
 import Security
 
-/// Stores small secrets as generic-password Keychain items.
-///
-/// Items are readable after the first unlock and never leave this device.
-/// Never log the values stored here.
+/// A Keychain call failed. `status` is the raw `OSStatus` from the Security framework.
 struct KeychainError: Error, Equatable, CustomStringConvertible {
     let status: OSStatus
 
@@ -15,6 +10,11 @@ struct KeychainError: Error, Equatable, CustomStringConvertible {
         return "Keychain error \(status): \(message)"
     }
 }
+
+/// Stores small secrets as generic-password Keychain items.
+///
+/// Items are readable after the first unlock and never leave this device.
+/// Never log the values stored here.
 struct KeychainStore: Sendable {
     /// The keys the app uses.
     enum Key {

@@ -1,27 +1,12 @@
-/// How much of the photo library the app may read.
 import Foundation
 
+/// How much of the photo library the app may read.
+public enum LibraryAuthorization: Sendable { case full, limited, denied, notDetermined }
+
 /// Whether the network can be used for uploads.
+public enum NetworkState: Sendable { case unavailable, expensive, ok }
 
 /// Read access to the user's photo library.
-
-/// The Telegram side: sending files and searching the destination chat.
-
-/// Keys of the small key-value area in the state store.
-
-/// Persistent sync state.
-
-/// The device conditions that decide whether syncing is allowed.
-
-/// Turns a coordinate into a place name, or `nil` if unknown.
-
-/// The source of the current time.
-
-/// Progress notifications from a sync run.
-
-/// Receives events from a sync run.
-public enum LibraryAuthorization: Sendable { case full, limited, denied, notDetermined }
-public enum NetworkState: Sendable { case unavailable, expensive, ok }
 public protocol PhotoLibrary: Sendable {
     /// Current permission level.
     func authorization() async -> LibraryAuthorization
@@ -32,6 +17,8 @@ public protocol PhotoLibrary: Sendable {
     /// Writes the resource to `fileURL` (parent dir exists). Throws `UploadError(.notLocal)` if only in iCloud.
     func export(assetLocalIdentifier: String, resourceKind: ResourceKind, to fileURL: URL) async throws
 }
+
+/// The Telegram side: sending files and searching the destination chat.
 public protocol TelegramUploader: Sendable {
     /// Largest file the account can send, in bytes.
     func maxFileSize() async -> Int64
@@ -49,7 +36,11 @@ public protocol TelegramUploader: Sendable {
     /// Captions of all document messages in the destination chat, newest first.
     func allDocumentCaptions() -> AsyncThrowingStream<String, Error>
 }
+
+/// Keys of the small key-value area in the state store.
 public enum MetaKey: String, Sendable { case baselineDate, lastSuccessfulSyncAt, lastReportJSON }
+
+/// Persistent sync state.
 public protocol StateStore: Sendable {
     /// Reads a meta value.
     func meta(_ key: MetaKey) async throws -> String?
@@ -81,6 +72,8 @@ public protocol StateStore: Sendable {
     /// Wipes units and meta, keeping the place cache.
     func resetAll() async throws
 }
+
+/// The device conditions that decide whether syncing is allowed.
 public protocol EnvironmentProbe: Sendable {
     /// Current network state.
     func networkState() async -> NetworkState
@@ -91,14 +84,20 @@ public protocol EnvironmentProbe: Sendable {
     /// Free storage in bytes.
     func freeDiskBytes() async -> Int64
 }
+
+/// Turns a coordinate into a place name, or `nil` if unknown.
 public protocol PlaceResolver: Sendable {
     /// The place name for `coordinate`, if one can be found.
     func placeName(for coordinate: Coordinate) async -> String?
 }
+
+/// The source of the current time.
 public protocol Clock: Sendable {
     /// The current date.
     func now() -> Date
 }
+
+/// Progress notifications from a sync run.
 public enum SyncEvent: Sendable, Equatable {
     case runStarted(total: Int, totalBytes: Int64)
     // `index` counts from zero.
@@ -107,6 +106,8 @@ public enum SyncEvent: Sendable, Equatable {
     case unitFinished(index: Int, total: Int, status: UnitStatus)
     case runFinished(SyncReport)
 }
+
+/// Receives events from a sync run.
 public protocol SyncObserver: Sendable {
     /// Called for each event, in order.
     func handle(_ event: SyncEvent) async

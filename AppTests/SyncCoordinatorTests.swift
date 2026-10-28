@@ -1,10 +1,9 @@
 import SyncCore
-
 import XCTest
 
-/// Lets a test hold a stand-in inside a call until it chooses to let go.
 @testable import TelegramPhotos
 
+/// Lets a test hold a stand-in inside a call until it chooses to let go.
 private actor Gate {
     private var entered = false
     private var released = false
@@ -31,6 +30,7 @@ private actor Gate {
         releaseWaiters = []
     }
 }
+
 private struct StubLibrary: PhotoLibrary {
     var gate: Gate?
 
@@ -45,6 +45,7 @@ private struct StubLibrary: PhotoLibrary {
         throw UploadError(kind: .permanent, message: "unused")
     }
 }
+
 private struct StubUploader: TelegramUploader {
     func maxFileSize() async -> Int64 { 2_000_000_000 }
 
@@ -62,14 +63,17 @@ private struct StubUploader: TelegramUploader {
         AsyncThrowingStream { $0.finish() }
     }
 }
+
 private struct StubEnvironment: EnvironmentProbe {
     func networkState() async -> NetworkState { .ok }
     func isCharging() async -> Bool { true }
     func freeDiskBytes() async -> Int64 { 10_000_000_000 }
 }
+
 private struct StubPlaces: PlaceResolver {
     func placeName(for coordinate: Coordinate) async -> String? { nil }
 }
+
 private struct StubReadiness: TelegramReadiness {
     var error: UploadError?
 
@@ -77,6 +81,7 @@ private struct StubReadiness: TelegramReadiness {
         if let error { throw error }
     }
 }
+
 private final class EventRecorder: SyncObserver, @unchecked Sendable {
     private let lock = NSLock()
     private var stored: [SyncEvent] = []
@@ -97,6 +102,7 @@ private final class EventRecorder: SyncObserver, @unchecked Sendable {
         lock.unlock()
     }
 }
+
 @MainActor
 final class SyncCoordinatorTests: XCTestCase {
     private struct Fixture {

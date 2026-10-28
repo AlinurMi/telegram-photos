@@ -1,12 +1,10 @@
 import Foundation
-
 import Observation
+import SyncCore
 
 /// What the screens show: the state of syncing, the counts and the last result.
 ///
 /// The coordinator feeds it. Views only read it.
-import SyncCore
-
 @MainActor
 @Observable
 final class AppModel {
@@ -117,6 +115,7 @@ final class AppModel {
         phase = .syncing(done: done, total: total, fileName: currentFileName, bytesRemaining: remaining)
     }
 }
+
 extension AppModel: SyncObserver {
     nonisolated func handle(_ event: SyncEvent) async {
         await apply(event)

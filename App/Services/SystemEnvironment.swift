@@ -1,16 +1,12 @@
 import Foundation
-
 import Network
-
 import SyncCore
-
 import UIKit
+import os
 
 /// Reports network, charging and free-storage conditions for the sync engine.
 ///
 /// Create one per process: it keeps a single `NWPathMonitor` running.
-import os
-
 final class SystemEnvironment: EnvironmentProbe, @unchecked Sendable {
     private let monitor = NWPathMonitor()
     private let latestPath = OSAllocatedUnfairLock<NWPath?>(initialState: nil)

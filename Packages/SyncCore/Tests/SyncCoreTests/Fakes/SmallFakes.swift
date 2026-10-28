@@ -1,14 +1,8 @@
 import Foundation
 
-/// A mutable `EnvironmentProbe`; defaults describe a good environment (Wi-Fi, charging, plenty of disk).
 @testable import SyncCore
 
-/// Returns scripted place names and counts lookups.
-
-/// A clock that only moves when told to. `Clock.now()` is synchronous, so this is a lock-guarded class
-/// rather than an actor.
-
-/// Collects every event it receives.
+/// A mutable `EnvironmentProbe`; defaults describe a good environment (Wi-Fi, charging, plenty of disk).
 actor FakeEnvironment: EnvironmentProbe {
     var network: NetworkState
     var charging: Bool
@@ -28,6 +22,8 @@ actor FakeEnvironment: EnvironmentProbe {
     func isCharging() async -> Bool { charging }
     func freeDiskBytes() async -> Int64 { freeDisk }
 }
+
+/// Returns scripted place names and counts lookups.
 actor FakePlaceResolver: PlaceResolver {
     private var names: [String: String] = [:]
     private(set) var lookups = 0
@@ -45,6 +41,9 @@ actor FakePlaceResolver: PlaceResolver {
         "\(coordinate.latitude),\(coordinate.longitude)"
     }
 }
+
+/// A clock that only moves when told to. `Clock.now()` is synchronous, so this is a lock-guarded class
+/// rather than an actor.
 final class FixedClock: Clock, @unchecked Sendable {
     private let lock = NSLock()
     private var current: Date
@@ -71,6 +70,8 @@ final class FixedClock: Clock, @unchecked Sendable {
         return current
     }
 }
+
+/// Collects every event it receives.
 actor RecordingObserver: SyncObserver {
     private(set) var events: [SyncEvent] = []
 

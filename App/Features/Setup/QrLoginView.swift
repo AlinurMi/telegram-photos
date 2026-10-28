@@ -1,8 +1,7 @@
 import CoreImage.CIFilterBuiltins
-
-/// Shows the login QR code. Another device that's logged in to Telegram scans it.
 import SwiftUI
 
+/// Shows the login QR code. Another device that's logged in to Telegram scans it.
 struct QrLoginView: View {
     let link: String
     let usePhone: () -> Void
@@ -21,6 +20,7 @@ struct QrLoginView: View {
         }
     }
 }
+
 private struct QrCodeImage: View {
     let text: String
 

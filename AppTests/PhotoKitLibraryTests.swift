@@ -1,7 +1,5 @@
 import Photos
-
 import SyncCore
-
 import XCTest
 
 @testable import TelegramPhotos

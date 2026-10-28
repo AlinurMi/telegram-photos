@@ -1,15 +1,16 @@
-/// A Telegram request failed. `message` is short, plain and safe to show to the owner.
 import Foundation
 import SyncCore
 
-/// Turns TDLib error codes into plain messages for the owner.
-///
-/// Takes the raw code and text so it stays free of TDLibKit types.
+/// A Telegram request failed. `message` is short, plain and safe to show to the owner.
 struct TelegramError: Error, LocalizedError, Equatable {
     let message: String
 
     var errorDescription: String? { message }
 }
+
+/// Turns TDLib error codes into plain messages for the owner.
+///
+/// Takes the raw code and text so it stays free of TDLibKit types.
 enum TDLibErrorMapping {
     private static let knownMessages: [(needle: String, text: String)] = [
         ("PHONE_CODE_INVALID", "Wrong code"),

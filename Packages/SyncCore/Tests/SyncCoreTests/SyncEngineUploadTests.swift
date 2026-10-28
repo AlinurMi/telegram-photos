@@ -3,12 +3,9 @@ import Testing
 
 @testable import SyncCore
 
-/// Cancels the task that is running the sync, then reports the cancellation the way the real uploader would.
-
-/// Fails every send with the given error.
-
-/// Succeeds, and moves the test clock forward as if the upload took `seconds`.
 private let start = Date(timeIntervalSince1970: 1_790_000_000)
+
+/// Cancels the task that is running the sync, then reports the cancellation the way the real uploader would.
 private actor CancellingUploader: TelegramUploader {
     let throwing: Bool
     private(set) var sendCount = 0
@@ -34,6 +31,7 @@ private actor CancellingUploader: TelegramUploader {
         AsyncThrowingStream { $0.finish() }
     }
 }
+
 private struct Harness {
     let library = FakePhotoLibrary()
     let uploader = FakeUploader()
@@ -87,11 +85,13 @@ private struct Harness {
         ((try? FileManager.default.contentsOfDirectory(atPath: workDirectory.path)) ?? []).isEmpty
     }
 }
+
 private func request(
     deadline: Date? = nil, allowCellular: Bool = false, settings: SyncSettings = SyncSettings()
 ) -> SyncRequest {
     SyncRequest(trigger: .manual, deadline: deadline, allowCellular: allowCellular, settings: settings)
 }
+
 @Test func happyPathUploadsInOrderAndStoresMessageIds() async throws {
     let h = Harness()
     await h.addPhotos(["b", "a", "c"], at: [20, 10, 30])
@@ -114,12 +114,14 @@ private func request(
     #expect(a.uploadedAt == start.addingTimeInterval(100))
     #expect(try await h.store.meta(.lastSuccessfulSyncAt) == ISO8601DateFormatter().string(from: a.uploadedAt!))
 }
+
 @Test func firstRunDiscoversByItself() async throws {
     let h = Harness()
     await h.addPhotos(["a"])
     let report = await h.engine().runOnce(request())
     #expect(report.uploaded == 1)
 }
+
 @Test func workDirectoryIsEmptyAfterwards() async throws {
     let h = Harness()
     await h.addPhotos(["a", "b/c|d"])
@@ -127,6 +129,7 @@ private func request(
     _ = await h.engine().runOnce(request())
     #expect(h.workDirectoryIsEmpty())
 }
+
 @Test func exportedFileIsSentFromPerUnitDirectory() async throws {
     let h = Harness()
     await h.addPhotos(["x/y|z"], filenameBase: "photo")
@@ -135,6 +138,7 @@ private func request(
     #expect(url.deletingLastPathComponent().lastPathComponent == "x_y_z_primary")
     #expect(await h.uploader.sent.first?.byteCount == 16)
 }
+
 @Test func notLocalIsSkipped() async throws {
     let h = Harness()
     await h.addPhotos(["a", "b"])
@@ -147,6 +151,7 @@ private func request(
     #expect(a.skipReason == .notLocal)
     #expect(a.attempts == 0)
 }
+
 @Test func tooLargeIsSkippedAndNeverExported() async throws {
     let h = Harness()
     await h.addPhotos(["a"])
@@ -158,6 +163,7 @@ private func request(
     #expect(a.skipReason == .tooLarge)
     #expect(await h.library.exports.isEmpty)
 }
+
 @Test func tooLargeFromUploaderIsSkipped() async throws {
     let h = Harness()
     await h.addPhotos(["a"])
@@ -166,6 +172,7 @@ private func request(
     #expect(report.skipped == 1)
     #expect(try await h.unit("a").skipReason == .tooLarge)
 }
+
 @Test func transientErrorBacksOffAndIsNotRetriedEarly() async throws {
     let h = Harness()
     await h.addPhotos(["a"])
@@ -192,6 +199,7 @@ private func request(
     #expect(a.status == .done)
     #expect(a.lastError == nil)
 }
+
 @Test func eightFailuresMakeTheUnitFailed() async throws {
     let h = Harness()
     await h.addPhotos(["a"])
@@ -212,6 +220,7 @@ private func request(
     #expect(again.uploaded == 0)
     #expect(await h.uploader.sent.count == 8)
 }
+
 @Test func permanentErrorFailsImmediately() async throws {
     let h = Harness()
     await h.addPhotos(["a"])
@@ -223,6 +232,7 @@ private func request(
     #expect(a.attempts == 1)
     #expect(a.lastError == "rejected")
 }
+
 @Test func rateLimitWaitsAtLeastTheRequestedTime() async throws {
     let h = Harness()
     await h.addPhotos(["a", "b"])
@@ -232,6 +242,7 @@ private func request(
     #expect(try await h.unit("a").nextAttemptAt == start.addingTimeInterval(600))
     #expect(try await h.unit("b").nextAttemptAt == start.addingTimeInterval(60))
 }
+
 @Test func unknownErrorsCountAsTransient() async throws {
     struct Odd: Error {}
     let h = Harness()
@@ -243,6 +254,7 @@ private func request(
     #expect(a.attempts == 1)
     #expect(a.nextAttemptAt == start.addingTimeInterval(60))
 }
+
 @Test func cancellationDuringSendReturnsUnitToPendingWithoutAnAttempt() async throws {
     let h = Harness()
     await h.addPhotos(["a", "b"])
@@ -259,6 +271,7 @@ private func request(
     #expect(await uploader.sendCount == 1)
     #expect(h.workDirectoryIsEmpty())
 }
+
 @Test func cancellationBetweenUnitsStopsBeforeTheNext() async throws {
     let h = Harness()
     await h.addPhotos(["a", "b"])
@@ -272,6 +285,7 @@ private func request(
     #expect(try await h.unit("b").status == .pending)
     #expect(await uploader.sendCount == 1)
 }
+
 @Test func deadlineStopsBeforeStartingTheNextUnit() async throws {
     let h = Harness()
     await h.addPhotos(["a", "b"])
@@ -284,6 +298,7 @@ private func request(
     #expect(report.remainingEligible == 1)
     #expect(try await h.unit("b").status == .pending)
 }
+
 @Test func deadlineInsideTheMarginStopsImmediately() async throws {
     let h = Harness()
     await h.addPhotos(["a"])
@@ -292,6 +307,7 @@ private func request(
     #expect(report.uploaded == 0)
     #expect(await h.uploader.sent.isEmpty)
 }
+
 @Test func expensiveNetworkBlocksUnlessCellularIsAllowed() async throws {
     let h = Harness()
     await h.addPhotos(["a"])
@@ -308,6 +324,7 @@ private func request(
     #expect(allowed.blockedBy == nil)
     #expect(allowed.uploaded == 1)
 }
+
 @Test func noNetworkBlocksAndStillDiscovers() async throws {
     let h = Harness()
     await h.addPhotos(["a"])
@@ -316,6 +333,7 @@ private func request(
     #expect(report.blockedBy == .noNetwork)
     #expect(try await h.store.allUnits().count == 1)
 }
+
 @Test func lowDiskStopsTheRun() async throws {
     let h = Harness()
     await h.addPhotos(["a"])
@@ -329,6 +347,7 @@ private func request(
     let fine = await h.engine().runOnce(request())
     #expect(fine.uploaded == 1)
 }
+
 @Test func missingLibraryAccessBlocksTheRun() async throws {
     let h = Harness()
     await h.library.setAuthorization(.limited)
@@ -336,6 +355,7 @@ private func request(
     #expect(report.blockedBy == .noLibraryAccess)
     #expect(report.uploaded == 0)
 }
+
 @Test func backfillWaitsForTheCharger() async throws {
     let h = Harness()
     await h.environment.setCharging(false)
@@ -354,6 +374,7 @@ private func request(
     #expect(charging.blockedBy == nil)
     #expect(charging.uploaded == 1)
 }
+
 @Test func nothingToDoIsNotBlocked() async throws {
     let h = Harness()
     await h.environment.setCharging(false)
@@ -361,6 +382,7 @@ private func request(
     #expect(report.blockedBy == nil)
     #expect(report.uploaded == 0)
 }
+
 @Test func nonBackfillUploadsWhileNotCharging() async throws {
     let h = Harness()
     await h.environment.setCharging(false)
@@ -369,6 +391,7 @@ private func request(
     #expect(report.uploaded == 1)
     #expect(report.blockedBy == nil)
 }
+
 @Test func interruptedUploadWithAMessageInTheChannelBecomesDone() async throws {
     let h = Harness()
     await h.addPhotos(["a", "b"])
@@ -393,6 +416,7 @@ private func request(
     #expect(await h.uploader.sent.first?.fileURL.lastPathComponent == "b.HEIC")
     #expect(report.uploaded == 1)
 }
+
 @Test func unknownResumeOutcomeLeavesTheUnitUploading() async throws {
     let h = Harness()
     await h.addPhotos(["a"])
@@ -406,6 +430,7 @@ private func request(
     #expect(try await h.unit("a").status == .uploading)
     #expect(await h.uploader.sent.isEmpty)
 }
+
 @Test func authLostDuringResumeStopsTheRun() async throws {
     let h = Harness()
     await h.addPhotos(["a", "b"])
@@ -419,6 +444,7 @@ private func request(
     #expect(report.blockedBy == .authLost)
     #expect(await h.uploader.sent.isEmpty)
 }
+
 @Test func placeNameIsCachedPerRoundedCoordinate() async throws {
     let h = Harness()
     let first = Coordinate(latitude: 42.8741, longitude: 74.5698)
@@ -439,6 +465,7 @@ private func request(
     #expect(captions.count == 2)
     #expect(captions.allSatisfy { $0.contains("Bishkek") })
 }
+
 @Test func unknownPlaceIsNotCached() async throws {
     let h = Harness()
     await h.addPhotos(["a"], location: Coordinate(latitude: 1, longitude: 2))
@@ -446,6 +473,7 @@ private func request(
     #expect(try await h.store.cachedPlace(key: "1.00,2.00") == nil)
     #expect(await h.places.lookups == 1)
 }
+
 @Test func observerSeesTheEventSequenceForTwoUnits() async throws {
     let h = Harness()
     await h.addPhotos(["a", "b"])
@@ -463,6 +491,7 @@ private func request(
             .runFinished(report),
         ])
 }
+
 @Test func authLostStopsTheRun() async throws {
     let h = Harness()
     await h.addPhotos(["a", "b"])
@@ -476,6 +505,7 @@ private func request(
     #expect(try await h.unit("b").status == .pending)
     #expect(await h.uploader.sent.count == 1)
 }
+
 @Test func screenshotsAreLeftOutWhenDisabled() async throws {
     let h = Harness()
     await h.library.setAssets([
@@ -488,6 +518,7 @@ private func request(
     #expect(report.uploaded == 0)
     #expect(try await h.unit("shot").skipReason == .screenshotsDisabled)
 }
+
 @Test func reportIsStoredAsJSON() async throws {
     let h = Harness()
     await h.addPhotos(["a"])
@@ -500,6 +531,8 @@ private func request(
     #expect(decoded.trigger == .manual)
     #expect(decoded.startedAt == report.startedAt)
 }
+
+/// Fails every send with the given error.
 private struct ThrowingUploader: TelegramUploader {
     let error: Error
 
@@ -515,6 +548,8 @@ private struct ThrowingUploader: TelegramUploader {
 
     func allDocumentCaptions() -> AsyncThrowingStream<String, Error> { AsyncThrowingStream { $0.finish() } }
 }
+
+/// Succeeds, and moves the test clock forward as if the upload took `seconds`.
 private struct ClockAdvancingUploader: TelegramUploader {
     let clock: FixedClock
     let seconds: TimeInterval

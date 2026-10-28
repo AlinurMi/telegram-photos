@@ -1,10 +1,9 @@
 import Foundation
+import SyncCore
 
 /// The owner's choices, kept in `UserDefaults`. Nothing in here is secret.
 ///
 /// The destination chat is written by `TelegramService.setDestination`; this type reads and writes the same keys.
-import SyncCore
-
 final class AppSettings: @unchecked Sendable {
     static let shared = AppSettings()
 

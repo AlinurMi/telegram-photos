@@ -1,7 +1,6 @@
-/// The category of an upload failure, which decides how it is retried.
 import Foundation
 
-/// An upload failure with a category and a short, non-sensitive message.
+/// The category of an upload failure, which decides how it is retried.
 public enum UploadErrorKind: Codable, Sendable, Equatable {
     case transient
     case rateLimited(retryAfterSeconds: Int)
@@ -11,6 +10,8 @@ public enum UploadErrorKind: Codable, Sendable, Equatable {
     case cancelled
     case authLost
 }
+
+/// An upload failure with a category and a short, non-sensitive message.
 public struct UploadError: Error, Codable, Sendable, Equatable {
     public var kind: UploadErrorKind
     public var message: String

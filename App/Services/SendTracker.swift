@@ -1,17 +1,17 @@
 import Foundation
+import SyncCore
 
 /// How one outgoing message ended, as reported by TDLib.
-import SyncCore
+enum SendOutcome: Equatable, Sendable {
+    case sent(messageId: Int64)
+    case failed(UploadError)
+}
 
 /// Pairs each outgoing message with its result and its upload progress.
 ///
 /// TDLib reports results through updates that can arrive before `sendMessage` has even returned,
 /// so every result is kept until someone asks for it. Updates come in on TDLib's queue while
 /// uploads wait on the caller's task, so all state sits behind one lock.
-enum SendOutcome: Equatable, Sendable {
-    case sent(messageId: Int64)
-    case failed(UploadError)
-}
 final class SendTracker: @unchecked Sendable {
     private struct FileWatch {
         let total: Int64

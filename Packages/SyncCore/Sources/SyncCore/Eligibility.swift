@@ -1,6 +1,6 @@
-/// Decides which upload units may be sent now, and in what order.
 import Foundation
 
+/// Decides which upload units may be sent now, and in what order.
 public enum Eligibility {
     /// Whether `unit` can be uploaded right now.
     public static func isEligible(_ unit: UploadUnit, now: Date, charging: Bool, settings: SyncSettings) -> Bool {

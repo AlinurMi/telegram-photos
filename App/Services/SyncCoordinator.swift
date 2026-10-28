@@ -1,24 +1,21 @@
 import Foundation
-
-/// Waits until Telegram is logged in. `TelegramService` is the real one; tests use a stand-in.
 import SyncCore
 
-/// Why a coordinator action could not start.
-
-/// Passes each engine event on to every observer, in order.
-
-/// Wires the engine to the app: one sync at a time, state for the screens, and the maintenance actions.
-
-/// Stands in when the database can't be opened: every call fails, so a run ends early instead of crashing.
+/// Waits until Telegram is logged in. `TelegramService` is the real one; tests use a stand-in.
 protocol TelegramReadiness: Sendable {
     /// Returns once logged in. Throws `UploadError` (`.authLost` if the owner must log in again).
     func waitUntilReady(timeout: TimeInterval) async throws
 }
+
 extension TelegramService: TelegramReadiness {}
+
+/// Why a coordinator action could not start.
 enum CoordinatorError: Error, Equatable {
     /// A sync run or another maintenance action is already in progress.
     case busy
 }
+
+/// Passes each engine event on to every observer, in order.
 final class SyncEventBus: SyncObserver, @unchecked Sendable {
     private let lock = NSLock()
     private var observers: [any SyncObserver] = []
@@ -41,6 +38,8 @@ final class SyncEventBus: SyncObserver, @unchecked Sendable {
         return observers
     }
 }
+
+/// Wires the engine to the app: one sync at a time, state for the screens, and the maintenance actions.
 actor SyncCoordinator {
     private static let readyTimeout: TimeInterval = 30
 
@@ -268,6 +267,8 @@ actor SyncCoordinator {
         ISO8601DateFormatter().date(from: text)
     }
 }
+
+/// Stands in when the database can't be opened: every call fails, so a run ends early instead of crashing.
 struct UnavailableStateStore: StateStore {
     func meta(_ key: MetaKey) async throws -> String? { throw StateStoreError.unavailable }
     func setMeta(_ key: MetaKey, _ value: String?) async throws { throw StateStoreError.unavailable }

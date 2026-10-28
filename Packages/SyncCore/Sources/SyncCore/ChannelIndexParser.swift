@@ -1,7 +1,6 @@
-/// Reads the asset tag and role back out of a caption that `CaptionBuilder` produced.
-
 import Foundation
 
+/// Reads the asset tag and role back out of a caption that `CaptionBuilder` produced.
 public enum ChannelIndexParser {
     /// Returns the first `#a` + 10 lowercase hex hashtag and the role tag (`#live`, then `#raw`, then `#edit`), or `nil` if there is no asset tag.
     public static func parse(caption: String) -> (assetTag: String, role: UnitRole)? {

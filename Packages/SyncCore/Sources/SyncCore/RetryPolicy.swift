@@ -1,6 +1,6 @@
-/// Decides when a failed upload is tried again, or whether it gives up.
 import Foundation
 
+/// Decides when a failed upload is tried again, or whether it gives up.
 public enum RetryPolicy {
     /// After this many attempts a unit becomes `failed`.
     public static let maxAttempts = 8

@@ -1,7 +1,6 @@
-/// One file that should be uploaded for an asset, before it becomes an `UploadUnit`.
 import Foundation
 
-/// Decides which files to upload for an asset and what to call them.
+/// One file that should be uploaded for an asset, before it becomes an `UploadUnit`.
 public struct PlannedUnit: Sendable, Equatable {
     public var role: UnitRole
     public var resourceKind: ResourceKind
@@ -16,6 +15,8 @@ public struct PlannedUnit: Sendable, Equatable {
         self.byteSize = byteSize
     }
 }
+
+/// Decides which files to upload for an asset and what to call them.
 public enum ResourcePlanner {
     /// Returns the units to upload, ordered primary, then RAW, then Live Photo video; empty if there is nothing usable.
     public static func plan(_ asset: AssetDescriptor) -> [PlannedUnit] {

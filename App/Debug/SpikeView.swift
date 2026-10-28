@@ -1,6 +1,6 @@
-/// Temporary screen for the phone checks; removed in the final polish task.
 import SwiftUI
 
+/// Temporary screen for the phone checks; removed in the final polish task.
 struct SpikeView: View {
     @State private var model = SpikeModel.shared
 

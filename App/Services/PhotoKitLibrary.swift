@@ -1,15 +1,12 @@
 import CoreLocation
-
 import Foundation
-
 import Photos
+import SyncCore
 
 /// Reads the photo library through PhotoKit and exports original files for upload.
 ///
 /// Only the user's own library is read (no iCloud Shared Albums, no hidden items),
 /// and files that aren't stored on the device are never downloaded.
-import SyncCore
-
 struct PhotoKitLibrary: PhotoLibrary {
     private let logger: FileLogger
 

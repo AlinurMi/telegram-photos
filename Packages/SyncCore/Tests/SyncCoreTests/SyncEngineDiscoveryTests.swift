@@ -27,6 +27,7 @@ private struct Harness {
         )
     }
 }
+
 private func photo(
     _ id: String,
     created: Date? = nil,
@@ -43,6 +44,7 @@ private func photo(
         resources: resources ?? [ResourceDescriptor(kind: .photo, originalFilename: "\(id).HEIC", byteSize: 1234)]
     )
 }
+
 @Test func firstDiscoveryStoresBaselineAsNow() async throws {
     let h = Harness()
     _ = try await h.engine.discover(settings: SyncSettings())
@@ -50,6 +52,7 @@ private func photo(
     let parsed = try #require(ISO8601DateFormatter().date(from: stored))
     #expect(parsed == start)
 }
+
 @Test func existingBaselineIsKept() async throws {
     let h = Harness()
     try await h.store.setMeta(.baselineDate, "2020-01-01T00:00:00Z")
@@ -57,6 +60,7 @@ private func photo(
     _ = try await h.engine.discover(settings: SyncSettings())
     #expect(try await h.store.meta(.baselineDate) == "2020-01-01T00:00:00Z")
 }
+
 @Test func oldAssetsAreBackfillAndNewOnesAreNot() async throws {
     let h = Harness()
     await h.library.setAssets([
@@ -71,6 +75,7 @@ private func photo(
     #expect(units["undated"]?.isBackfill == true)
     #expect(units["new"]?.isBackfill == false)
 }
+
 @Test func unitsCopyAssetDetails() async throws {
     let h = Harness()
     let place = Coordinate(latitude: 12.5, longitude: -3.25)
@@ -88,6 +93,7 @@ private func photo(
     #expect(unit.location == place)
     #expect(unit.isScreenshotOrRecording)
 }
+
 @Test func assetWithSeveralFilesGetsOneUnitPerFile() async throws {
     let h = Harness()
     await h.library.setAssets([
@@ -104,6 +110,7 @@ private func photo(
     let ids = Set(try await h.store.allUnits().map(\.id))
     #expect(ids == ["raw|primary", "raw|raw", "raw|live"])
 }
+
 @Test func secondDiscoveryInsertsNothing() async throws {
     let h = Harness()
     await h.library.setAssets([photo("a"), photo("b")])
@@ -111,6 +118,7 @@ private func photo(
     #expect(try await h.engine.discover(settings: SyncSettings()) == 0)
     #expect(try await h.store.allUnits().count == 2)
 }
+
 @Test func laterAssetIsInserted() async throws {
     let h = Harness()
     await h.library.setAssets([photo("a")])
@@ -122,12 +130,14 @@ private func photo(
     #expect(units.count == 2)
     #expect(units.first { $0.assetLocalIdentifier == "b" }?.isBackfill == false)
 }
+
 @Test func assetWithNoUsableResourcesInsertsNothing() async throws {
     let h = Harness()
     await h.library.setAssets([photo("empty", resources: [])])
     #expect(try await h.engine.discover(settings: SyncSettings()) == 0)
     #expect(try await h.store.allUnits().isEmpty)
 }
+
 @Test func disablingScreenshotsSkipsPendingScreenshots() async throws {
     let h = Harness()
     await h.library.setAssets([photo("shot", screenshot: true), photo("normal")])
@@ -137,6 +147,7 @@ private func photo(
     #expect(units["shot"]?.skipReason == .screenshotsDisabled)
     #expect(units["normal"]?.status == .pending)
 }
+
 @Test func enablingScreenshotsRestoresThem() async throws {
     let h = Harness()
     await h.library.setAssets([photo("shot", screenshot: true)])
@@ -146,6 +157,7 @@ private func photo(
     #expect(unit.status == .pending)
     #expect(unit.skipReason == nil)
 }
+
 @Test func screenshotToggleLeavesOtherStatesAlone() async throws {
     let h = Harness()
     await h.library.setAssets([photo("shot", screenshot: true), photo("big", screenshot: true)])
@@ -167,6 +179,7 @@ private func photo(
     #expect(units["big"]?.status == .skipped)
     #expect(units["big"]?.skipReason == .tooLarge)
 }
+
 @Test(arguments: [LibraryAuthorization.limited, .denied, .notDetermined])
 func discoveryThrowsWithoutFullAccess(level: LibraryAuthorization) async throws {
     let h = Harness(authorization: level)

@@ -1,5 +1,4 @@
 import ActivityKit
-
 import Foundation
 
 struct SyncActivityAttributes: ActivityAttributes {

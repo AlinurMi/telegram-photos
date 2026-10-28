@@ -1,14 +1,10 @@
 import Foundation
 import Security
 import SyncCore
-/// Where the Telegram login stands. The setup screens show one view per case.
 import TDLibKit
 import UIKit
 
-/// Owns the one TDLib client of the process and publishes the login state.
-///
-/// Create it once (`TelegramService.shared`). Nothing starts until `start()` is called.
-/// Only auth state names are logged. Never log the phone number, the code or the password.
+/// Where the Telegram login stands. The setup screens show one view per case.
 enum AuthStep: Equatable, Sendable {
     /// TDLib is starting and hasn't reported its state yet.
     case starting
@@ -48,6 +44,7 @@ enum AuthStep: Equatable, Sendable {
         }
     }
 }
+
 extension AuthorizationState {
     /// The state's case name only. Never `String(describing:)`, because payloads can hold the phone number.
     fileprivate var stateName: String {
@@ -86,6 +83,11 @@ extension AuthenticationCodeType {
         }
     }
 }
+
+/// Owns the one TDLib client of the process and publishes the login state.
+///
+/// Create it once (`TelegramService.shared`). Nothing starts until `start()` is called.
+/// Only auth state names are logged. Never log the phone number, the code or the password.
 @MainActor
 final class TelegramService: ObservableObject {
     static let shared = TelegramService()
