@@ -5,6 +5,7 @@ import SyncCore
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @AppStorage(AppSettings.includeScreenshotsKey) private var includeScreenshots = true
+    @AppStorage(AppSettings.resendEditsKey) private var resendEdits = false
     @State private var destinationTitle: String?
     @State private var showAdvanced = false
     @State private var logURLs: [URL] = []
@@ -50,15 +51,14 @@ struct SettingsView: View {
                 LabeledContent("Destination", value: destinationTitle ?? "Not chosen")
             }
             Toggle("Include screenshots & screen recordings", isOn: $includeScreenshots)
-            Toggle(isOn: .constant(false)) {
+            Toggle(isOn: $resendEdits) {
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Re-send edited photos")
-                    Text("Coming soon")
+                    Text("When you edit a photo or video that's already backed up, a new copy is sent.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
             }
-            .disabled(true)
         }
     }
 

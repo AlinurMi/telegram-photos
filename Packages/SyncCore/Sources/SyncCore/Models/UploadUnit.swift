@@ -30,6 +30,8 @@ public struct UploadUnit: Codable, Sendable, Equatable, Identifiable {
     public var lastError: String?
     public var messageId: Int64?
     public var uploadedAt: Date?
+    /// The asset's modification date when this unit was planned; edits are detected against it.
+    public var assetModifiedAt: Date?
 
     /// Creates an upload unit; new units start `pending` with no attempts.
     public init(
@@ -50,7 +52,8 @@ public struct UploadUnit: Codable, Sendable, Equatable, Identifiable {
         nextAttemptAt: Date? = nil,
         lastError: String? = nil,
         messageId: Int64? = nil,
-        uploadedAt: Date? = nil
+        uploadedAt: Date? = nil,
+        assetModifiedAt: Date? = nil
     ) {
         self.id = id
         self.assetLocalIdentifier = assetLocalIdentifier
@@ -70,5 +73,6 @@ public struct UploadUnit: Codable, Sendable, Equatable, Identifiable {
         self.lastError = lastError
         self.messageId = messageId
         self.uploadedAt = uploadedAt
+        self.assetModifiedAt = assetModifiedAt
     }
 }

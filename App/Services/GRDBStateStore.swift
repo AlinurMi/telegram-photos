@@ -36,6 +36,7 @@ final class GRDBStateStore: StateStore {
         "id", "assetLocalIdentifier", "assetTag", "role", "resourceKind", "uploadFilename",
         "byteSize", "creationDate", "isBackfill", "isScreenshotOrRecording", "latitude", "longitude",
         "status", "skipReason", "attempts", "nextAttemptAt", "lastError", "messageId", "uploadedAt",
+        "assetModifiedAt",
     ]
 
     private static var migrator: DatabaseMigrator {
@@ -54,6 +55,9 @@ final class GRDBStateStore: StateStore {
             try db.execute(sql: "CREATE INDEX unit_assetLocalIdentifier ON unit(assetLocalIdentifier)")
             try db.execute(sql: "CREATE TABLE meta (key TEXT PRIMARY KEY NOT NULL, value TEXT)")
             try db.execute(sql: "CREATE TABLE place (key TEXT PRIMARY KEY NOT NULL, name TEXT NOT NULL)")
+        }
+        migrator.registerMigration("v2") { db in
+            try db.execute(sql: "ALTER TABLE unit ADD COLUMN assetModifiedAt REAL")
         }
         return migrator
     }
@@ -171,7 +175,7 @@ extension UploadUnit {
             byteSize, creationDate?.timeIntervalSince1970, isBackfill, isScreenshotOrRecording,
             location?.latitude, location?.longitude,
             status.rawValue, skipReason?.rawValue, attempts, nextAttemptAt?.timeIntervalSince1970,
-            lastError, messageId, uploadedAt?.timeIntervalSince1970,
+            lastError, messageId, uploadedAt?.timeIntervalSince1970, assetModifiedAt?.timeIntervalSince1970,
         ]
     }
 
@@ -206,7 +210,8 @@ extension UploadUnit {
             nextAttemptAt: (row["nextAttemptAt"] as Double?).map(Date.init(timeIntervalSince1970:)),
             lastError: row["lastError"],
             messageId: row["messageId"],
-            uploadedAt: (row["uploadedAt"] as Double?).map(Date.init(timeIntervalSince1970:))
+            uploadedAt: (row["uploadedAt"] as Double?).map(Date.init(timeIntervalSince1970:)),
+            assetModifiedAt: (row["assetModifiedAt"] as Double?).map(Date.init(timeIntervalSince1970:))
         )
     }
 }
