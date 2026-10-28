@@ -1,13 +1,7 @@
 import SwiftUI
-
-/// Where backups go, what gets uploaded, the version, and the maintenance tools under a collapsed Advanced.
 import SyncCore
 
-/// The destination picker from setup, going back to Settings once a chat is chosen.
-
-/// The Advanced actions that change state.
-
-/// Result and error lines for the Advanced actions. Kept apart from the view so they can be tested.
+/// Where backups go, what gets uploaded, the version, and the maintenance tools under a collapsed Advanced.
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
     @AppStorage(AppSettings.includeScreenshotsKey) private var includeScreenshots = true
@@ -178,6 +172,8 @@ struct SettingsView: View {
         return "\(short) (\(build))"
     }
 }
+
+/// The destination picker from setup, going back to Settings once a chat is chosen.
 private struct ChangeDestinationView: View {
     @Environment(\.dismiss) private var dismiss
 
@@ -185,6 +181,8 @@ private struct ChangeDestinationView: View {
         DestinationView(telegram: .shared, onChosen: { dismiss() })
     }
 }
+
+/// The Advanced actions that change state.
 enum MaintenanceAction: String {
     case rebuild, retryFailed, logOut, reset
 
@@ -223,6 +221,8 @@ enum MaintenanceAction: String {
         }
     }
 }
+
+/// Result and error lines for the Advanced actions. Kept apart from the view so they can be tested.
 enum SettingsText {
     static func rebuilt(_ count: Int) -> String {
         "Marked \(items(count)) as already uploaded"

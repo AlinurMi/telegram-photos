@@ -1,18 +1,11 @@
 import BackgroundTasks
-
 import Foundation
+import SyncCore
 
 /// Runs Sync Now as a continued background task, so uploading goes on after the owner leaves the app
 /// and iOS shows the progress in the Dynamic Island and on the Lock Screen.
 ///
 /// Named `BackgroundSync` rather than `BackgroundTasks` so it doesn't hide Apple's module of that name.
-import SyncCore
-
-/// Feeds sync events into the running continued task's progress and subtitle.
-///
-/// It stays registered with the coordinator; events are ignored while no task is attached.
-
-/// What the system's progress UI shows during Sync Now. Kept apart from the task so it can be tested.
 @MainActor
 final class BackgroundSync {
     static let shared = BackgroundSync()
@@ -133,6 +126,10 @@ final class BackgroundSync {
         return report.blockedBy == nil || report.blockedBy == .deadline
     }
 }
+
+/// Feeds sync events into the running continued task's progress and subtitle.
+///
+/// It stays registered with the coordinator; events are ignored while no task is attached.
 final class ContinuedTaskProgress: SyncObserver, @unchecked Sendable {
     private let lock = NSLock()
     private var task: BGContinuedProcessingTask?
@@ -177,6 +174,8 @@ final class ContinuedTaskProgress: SyncObserver, @unchecked Sendable {
         }
     }
 }
+
+/// What the system's progress UI shows during Sync Now. Kept apart from the task so it can be tested.
 struct ContinuedSyncDisplay: Equatable {
     static let title = "Backing up photos"
     static let startingSubtitle = "Checking for new photos…"
