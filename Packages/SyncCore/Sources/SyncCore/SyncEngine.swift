@@ -56,7 +56,8 @@ public actor SyncEngine {
         self.observer = observer
     }
 
-    /// Stores new library assets as pending units and applies the screenshot setting; returns how many units were added.
+    /// Stores new library assets as pending units, adds `#edit` units for re-edited uploaded assets when
+    /// `settings.resendEdits` is on, and applies the screenshot setting; returns how many units were added.
     public func discover(settings: SyncSettings) async throws -> Int {
         guard await library.authorization() == .full else {
             throw UploadError(kind: .permanent, message: "noLibraryAccess")
@@ -70,8 +71,11 @@ public actor SyncEngine {
             newUnits.append(contentsOf: units(for: asset, baseline: baseline))
         }
         try await store.insert(newUnits)
+        let editUnits = try await trackEdits(
+            of: assets.filter { known.contains($0.localIdentifier) }, resend: settings.resendEdits)
+        try await store.insert(editUnits)
         try await applyScreenshotSetting(settings.includeScreenshots)
-        return newUnits.count
+        return newUnits.count + editUnits.count
     }
 
     /// Runs one sync: discovers new assets, resolves interrupted uploads, then uploads eligible units until
@@ -134,6 +138,7 @@ public actor SyncEngine {
     private static let noLibraryAccessMessage = "noLibraryAccess"
     private static let minimumFreeDiskMargin: Int64 = 200 * 1024 * 1024
     private static let deadlineMargin: TimeInterval = 5
+    private static let editThreshold: TimeInterval = 60
 
     private struct RunTally {
         var uploaded = 0
@@ -412,9 +417,65 @@ public actor SyncEngine {
                 isBackfill: isBackfill,
                 isScreenshotOrRecording: asset.isScreenshotOrRecording,
                 location: asset.location,
-                status: .pending
+                status: .pending,
+                assetModifiedAt: asset.modificationDate
             )
         }
+    }
+
+    /// Returns new `.edit` units for assets whose `done` primary unit is older than the asset's current
+    /// modification date by more than `editThreshold` (compared with the newest edit unit, if any).
+    /// While `resend` is off, or when a unit has no stored date yet, the stored date just follows the
+    /// asset, so turning the setting on never re-sends edits made before.
+    private func trackEdits(of assets: [AssetDescriptor], resend: Bool) async throws -> [UploadUnit] {
+        guard !assets.isEmpty else { return [] }
+        let stored = try await store.allUnits()
+        let existingIds = Set(stored.map(\.id))
+        let byAsset = Dictionary(grouping: stored, by: \.assetLocalIdentifier)
+
+        var edits: [UploadUnit] = []
+        for asset in assets {
+            guard let modified = asset.modificationDate,
+                let units = byAsset[asset.localIdentifier],
+                var primary = units.first(where: { $0.role == .primary }),
+                primary.status == .done
+            else { continue }
+
+            guard resend, let recorded = primary.assetModifiedAt else {
+                if primary.assetModifiedAt.map({ modified > $0 }) ?? true {
+                    primary.assetModifiedAt = modified
+                    try await store.update(primary)
+                }
+                continue
+            }
+            let latest = units.filter { $0.role == .edit }.compactMap(\.assetModifiedAt).reduce(recorded, max)
+            guard modified.timeIntervalSince(latest) > Self.editThreshold,
+                let edit = editUnit(for: asset, modified: modified, tag: primary.assetTag),
+                !existingIds.contains(edit.id)
+            else { continue }
+            edits.append(edit)
+        }
+        return edits
+    }
+
+    /// The current render of the asset's primary resource as a non-backfill `.edit` unit.
+    private func editUnit(for asset: AssetDescriptor, modified: Date, tag: String) -> UploadUnit? {
+        guard let planned = ResourcePlanner.plan(asset).first(where: { $0.role == .primary }) else { return nil }
+        return UploadUnit(
+            id: "\(asset.localIdentifier)|\(UnitRole.edit.rawValue)|\(Int(modified.timeIntervalSince1970))",
+            assetLocalIdentifier: asset.localIdentifier,
+            assetTag: tag,
+            role: .edit,
+            resourceKind: planned.resourceKind,
+            uploadFilename: planned.uploadFilename,
+            byteSize: planned.byteSize,
+            creationDate: asset.creationDate,
+            isBackfill: false,
+            isScreenshotOrRecording: asset.isScreenshotOrRecording,
+            location: asset.location,
+            status: .pending,
+            assetModifiedAt: modified
+        )
     }
 
     private func applyScreenshotSetting(_ includeScreenshots: Bool) async throws {
