@@ -6,7 +6,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
-        SpikeTasks.registerSyncNow()
+        BackgroundSync.shared.register()
         return true
     }
 }
