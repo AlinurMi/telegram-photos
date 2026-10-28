@@ -163,6 +163,16 @@ actor SyncCoordinator {
         await refreshState()
     }
 
+    /// Shows the setup flow again so the owner can log back in after Telegram ended the session.
+    ///
+    /// The destination, permissions and baseline are kept, so setup goes straight to the login screens
+    /// and finishes on its own once logged in.
+    func returnToLogin() async {
+        settings.setupCompleted = false
+        await model.clearAuthLost()
+        logger.info("Returning to login", category: "setup")
+    }
+
     /// Marks everything already in the channel as done; returns how many units changed.
     func rebuild() async throws -> Int {
         try beginExclusive()

@@ -36,7 +36,7 @@ struct RootView: View {
 
     var body: some View {
         if setupCompleted {
-            ContentView()
+            StatusView()
         } else {
             SetupFlowView(telegram: .shared)
         }
