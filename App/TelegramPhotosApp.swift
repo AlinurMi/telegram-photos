@@ -19,13 +19,26 @@ struct TelegramPhotosApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
+            RootView()
                 .environment(AppModel.shared)
         }
         .onChange(of: scenePhase, initial: true) { _, phase in
             guard phase == .active, !didStartLaunchSync else { return }
             didStartLaunchSync = true
             Task { await SyncCoordinator.shared.syncOnLaunch() }
+        }
+    }
+}
+
+/// Shows the setup flow until setup is finished, then the main screen.
+struct RootView: View {
+    @AppStorage(AppSettings.setupCompletedKey) private var setupCompleted = false
+
+    var body: some View {
+        if setupCompleted {
+            ContentView()
+        } else {
+            SetupFlowView(telegram: .shared)
         }
     }
 }

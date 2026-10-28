@@ -436,6 +436,23 @@ extension TelegramService {
         }
     }
 
+    /// Sends a short greeting to Saved Messages. Used by the setup flow to prove the login works.
+    func sendTestMessage() async throws {
+        let chat = try await savedMessagesChat()
+        try await perform { client in
+            let text = FormattedText(entities: [], text: "Hello from TelegramPhotos 👋")
+            _ = try await client.sendMessage(
+                chatId: chat.id,
+                inputMessageContent: .inputMessageText(
+                    InputMessageText(clearDraft: false, linkPreviewOptions: nil, text: text)),
+                options: nil,
+                replyMarkup: nil,
+                replyTo: nil,
+                topicId: nil
+            )
+        }
+    }
+
     private static func writableSummary(of chat: Chat, myId: Int64, client: TDLibClient) async throws
         -> ChatSummary?
     {
