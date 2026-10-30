@@ -581,13 +581,18 @@ extension TelegramService: TelegramUploader {
             let chatId = try requireDestination()
             try await loadDestination(chatId, client: client)
             let formatted = await formattedText(for: caption, client: client)
+            let thumbnail = await DocumentThumbnail.make(for: fileURL, in: fileURL.deletingLastPathComponent())
             let content = InputMessageContent.inputMessageDocument(
                 InputMessageDocument(
                     caption: formatted,
                     document: InputDocument(
                         disableContentTypeDetection: true,
                         document: .inputFileLocal(InputFileLocal(path: fileURL.path)),
-                        thumbnail: nil
+                        thumbnail: thumbnail.map {
+                            InputThumbnail(
+                                height: $0.height, thumbnail: .inputFileLocal(InputFileLocal(path: $0.url.path)),
+                                width: $0.width)
+                        }
                     )
                 )
             )
