@@ -74,8 +74,29 @@ public actor SyncEngine {
         let editUnits = try await trackEdits(
             of: assets.filter { known.contains($0.localIdentifier) }, resend: settings.resendEdits)
         try await store.insert(editUnits)
+        try await applyDeletedAssets(present: Set(assets.map(\.localIdentifier)))
         try await applyScreenshotSetting(settings.includeScreenshots)
         return newUnits.count + editUnits.count
+    }
+
+    /// Photos deleted before they were uploaded can never be sent, so their waiting or failed units are skipped
+    /// instead of piling up in the queue. If the asset shows up again, the unit goes back to pending.
+    private func applyDeletedAssets(present: Set<String>) async throws {
+        for var unit in try await store.allUnits() {
+            let isPresent = present.contains(unit.assetLocalIdentifier)
+            if !isPresent, unit.status == .pending || unit.status == .failed {
+                unit.status = .skipped
+                unit.skipReason = .assetDeleted
+            } else if isPresent, unit.status == .skipped, unit.skipReason == .assetDeleted {
+                unit.status = .pending
+                unit.skipReason = nil
+                unit.attempts = 0
+                unit.nextAttemptAt = nil
+            } else {
+                continue
+            }
+            try await store.update(unit)
+        }
     }
 
     /// Runs one sync: discovers new assets, resolves interrupted uploads, then uploads eligible units until

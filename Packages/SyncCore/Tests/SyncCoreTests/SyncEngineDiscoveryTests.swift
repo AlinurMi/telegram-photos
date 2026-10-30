@@ -189,3 +189,40 @@ func discoveryThrowsWithoutFullAccess(level: LibraryAuthorization) async throws 
     }
     #expect(try await h.store.allUnits().isEmpty)
 }
+
+@Test func deletedAssetsAreSkippedUnlessAlreadyHandled() async throws {
+    let h = Harness()
+    await h.library.setAssets([photo("pending"), photo("failed"), photo("done"), photo("kept")])
+    _ = try await h.engine.discover(settings: SyncSettings())
+    for (id, status) in [("failed", UnitStatus.failed), ("done", .done)] {
+        var unit = try #require(try await h.store.allUnits().first { $0.assetLocalIdentifier == id })
+        unit.status = status
+        try await h.store.update(unit)
+    }
+
+    await h.library.setAssets([photo("kept")])
+    _ = try await h.engine.discover(settings: SyncSettings())
+
+    let units = Dictionary(uniqueKeysWithValues: try await h.store.allUnits().map { ($0.assetLocalIdentifier, $0) })
+    #expect(units["pending"]?.status == .skipped)
+    #expect(units["pending"]?.skipReason == .assetDeleted)
+    #expect(units["failed"]?.status == .skipped)
+    #expect(units["failed"]?.skipReason == .assetDeleted)
+    #expect(units["done"]?.status == .done)
+    #expect(units["kept"]?.status == .pending)
+}
+
+@Test func anAssetThatComesBackIsQueuedAgain() async throws {
+    let h = Harness()
+    await h.library.setAssets([photo("a")])
+    _ = try await h.engine.discover(settings: SyncSettings())
+    await h.library.setAssets([])
+    _ = try await h.engine.discover(settings: SyncSettings())
+    #expect(try await h.store.allUnits().first?.status == .skipped)
+
+    await h.library.setAssets([photo("a")])
+    _ = try await h.engine.discover(settings: SyncSettings())
+    let unit = try #require(try await h.store.allUnits().first)
+    #expect(unit.status == .pending)
+    #expect(unit.skipReason == nil)
+}
