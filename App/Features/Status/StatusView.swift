@@ -183,9 +183,10 @@ struct StatusSummary: Equatable {
             return StatusSummary(title: "Waiting for Wi-Fi", action: .useCellular)
         case .needsCharger:
             let older = counts.backfillPending
-            if older == 0 { return StatusSummary(title: "Older items will upload while charging") }
+            let hint = "Or tap Sync Now to upload them right away."
+            if older == 0 { return StatusSummary(title: "Older items will upload while charging", detail: hint) }
             let noun = older == 1 ? "item" : "items"
-            return StatusSummary(title: "\(older.formatted()) older \(noun) will upload while charging")
+            return StatusSummary(title: "\(older.formatted()) older \(noun) will upload while charging", detail: hint)
         case .authLost:
             return StatusSummary(title: "Log in again", detail: "Telegram ended this app's session.", action: .logIn)
         case .noLibraryAccess:

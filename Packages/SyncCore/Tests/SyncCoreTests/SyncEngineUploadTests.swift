@@ -87,9 +87,10 @@ private struct Harness {
 }
 
 private func request(
-    deadline: Date? = nil, allowCellular: Bool = false, settings: SyncSettings = SyncSettings()
+    trigger: SyncTrigger = .manual, deadline: Date? = nil, allowCellular: Bool = false,
+    settings: SyncSettings = SyncSettings()
 ) -> SyncRequest {
-    SyncRequest(trigger: .manual, deadline: deadline, allowCellular: allowCellular, settings: settings)
+    SyncRequest(trigger: trigger, deadline: deadline, allowCellular: allowCellular, settings: settings)
 }
 
 @Test func happyPathUploadsInOrderAndStoresMessageIds() async throws {
@@ -364,15 +365,44 @@ private func request(
             localIdentifier: "old", creationDate: start.addingTimeInterval(-500), mediaKind: .image,
             resources: [ResourceDescriptor(kind: .photo, originalFilename: "old.HEIC", byteSize: 10)])
     ])
-    let waiting = await h.engine().runOnce(request())
+    let waiting = await h.engine().runOnce(request(trigger: .intent))
     #expect(waiting.blockedBy == .needsCharger)
     #expect(waiting.uploaded == 0)
     #expect(waiting.remainingEligible == 0)
 
     await h.environment.setCharging(true)
-    let charging = await h.engine().runOnce(request())
+    let charging = await h.engine().runOnce(request(trigger: .intent))
     #expect(charging.blockedBy == nil)
     #expect(charging.uploaded == 1)
+}
+
+@Test func syncNowUploadsBackfillWithoutTheCharger() async throws {
+    let h = Harness()
+    await h.environment.setCharging(false)
+    await h.library.setAssets([
+        AssetDescriptor(
+            localIdentifier: "old", creationDate: start.addingTimeInterval(-500), mediaKind: .image,
+            resources: [ResourceDescriptor(kind: .photo, originalFilename: "old.HEIC", byteSize: 10)])
+    ])
+    let report = await h.engine().runOnce(request(trigger: .manual))
+    #expect(report.blockedBy == nil)
+    #expect(report.uploaded == 1)
+    #expect(report.remainingEligible == 0)
+}
+
+@Test func automaticRunsStillLeaveBackfillWhenUnplugged() async throws {
+    for trigger in [SyncTrigger.intent, .backgroundProcessing, .appLaunch] {
+        let h = Harness()
+        await h.environment.setCharging(false)
+        await h.library.setAssets([
+            AssetDescriptor(
+                localIdentifier: "old", creationDate: start.addingTimeInterval(-500), mediaKind: .image,
+                resources: [ResourceDescriptor(kind: .photo, originalFilename: "old.HEIC", byteSize: 10)])
+        ])
+        let report = await h.engine().runOnce(request(trigger: trigger))
+        #expect(report.blockedBy == .needsCharger)
+        #expect(report.uploaded == 0)
+    }
 }
 
 @Test func nothingToDoIsNotBlocked() async throws {

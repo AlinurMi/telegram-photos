@@ -158,7 +158,7 @@ public actor SyncEngine {
             return
         }
 
-        let charging = await environment.isCharging()
+        let charging = await powerAllowsBackfill(for: request)
         let now = clock.now()
         let units = try await store.allUnits()
         let candidates = Eligibility.ordered(
@@ -350,7 +350,7 @@ public actor SyncEngine {
     }
 
     private func finish(_ request: SyncRequest, startedAt: Date, tally: RunTally) async -> SyncReport {
-        let remaining = await eligibleCount(settings: request.settings)
+        let remaining = await eligibleCount(request: request)
         let report = SyncReport(
             trigger: request.trigger,
             startedAt: startedAt,
@@ -371,11 +371,19 @@ public actor SyncEngine {
         return report
     }
 
-    private func eligibleCount(settings: SyncSettings) async -> Int {
-        let charging = await environment.isCharging()
+    /// Whether older (backfill) items may upload in this run. Tapping Sync Now is an explicit request, so it ignores
+    /// the charger rule; automatic runs still wait for power.
+    private func powerAllowsBackfill(for request: SyncRequest) async -> Bool {
+        if request.trigger == .manual { return true }
+        return await environment.isCharging()
+    }
+
+    private func eligibleCount(request: SyncRequest) async -> Int {
+        let charging = await powerAllowsBackfill(for: request)
         let now = clock.now()
         guard let units = try? await store.allUnits() else { return 0 }
-        return units.filter { Eligibility.isEligible($0, now: now, charging: charging, settings: settings) }.count
+        return units.filter { Eligibility.isEligible($0, now: now, charging: charging, settings: request.settings) }
+            .count
     }
 
     private static func sanitized(_ unitId: String) -> String {

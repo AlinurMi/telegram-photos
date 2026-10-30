@@ -35,6 +35,9 @@ final class StatusSummaryTests: XCTestCase {
         XCTAssertEqual(
             summary(.blocked(.needsCharger), StatusCounts(pending: 1, backfillPending: 1)).title,
             "1 older item will upload while charging")
+        XCTAssertEqual(
+            summary(.blocked(.needsCharger), StatusCounts(pending: 1, backfillPending: 1)).detail,
+            "Or tap Sync Now to upload them right away.")
         XCTAssertEqual(summary(.blocked(.authLost)).title, "Log in again")
         XCTAssertEqual(summary(.blocked(.authLost)).action, .logIn)
         XCTAssertEqual(
