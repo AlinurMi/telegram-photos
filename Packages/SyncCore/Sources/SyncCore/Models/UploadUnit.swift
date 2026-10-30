@@ -7,7 +7,7 @@ public enum UnitRole: String, Codable, Sendable, CaseIterable { case primary, ra
 public enum UnitStatus: String, Codable, Sendable { case pending, uploading, done, failed, skipped }
 
 /// Why an upload unit was skipped instead of uploaded.
-public enum SkipReason: String, Codable, Sendable { case notLocal, tooLarge, screenshotsDisabled }
+public enum SkipReason: String, Codable, Sendable { case notLocal, tooLarge, screenshotsDisabled, assetDeleted }
 
 /// One file to upload to Telegram, with its sync state.
 public struct UploadUnit: Codable, Sendable, Equatable, Identifiable {
