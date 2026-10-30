@@ -171,6 +171,100 @@ private func failedUnit(_ id: String, status: UnitStatus = .failed) -> UploadUni
     #expect(try await h.store.allUnits().allSatisfy { $0.status == .pending })
 }
 
+@Test func reconcileMarksUploadsMissingFromTheChannelAsRemoved() async throws {
+    let h = Harness()
+    await h.addPhotos(["a", "b", "c"])
+    _ = try await h.engine.discover(settings: SyncSettings())
+    for id in ["a|primary", "b|primary"] {
+        var unit = try await h.unit(id)
+        unit.status = .done
+        unit.messageId = 5
+        unit.uploadedAt = start.addingTimeInterval(-86_400)
+        try await h.store.update(unit)
+    }
+    await h.uploader.setCaptions([caption(for: "a"), caption(for: "c")])
+
+    let result = try await h.engine.reconcileWithChannel()
+
+    #expect(result == ChannelCheckResult(markedDone: 1, removed: 1))
+    #expect(try await h.unit("a|primary").status == .done)
+    let removed = try await h.unit("b|primary")
+    #expect(removed.status == .skipped)
+    #expect(removed.skipReason == .removedFromChannel)
+    #expect(try await h.unit("c|primary").status == .done)
+    let counts = try await h.store.counts()
+    #expect(counts.done == 2)
+}
+
+@Test func reconcileDoesNotQueueRemovedItemsForUploadAgain() async throws {
+    let h = Harness()
+    await h.addPhotos(["a"])
+    _ = try await h.engine.discover(settings: SyncSettings())
+    var unit = try await h.unit("a|primary")
+    unit.status = .done
+    unit.uploadedAt = start.addingTimeInterval(-86_400)
+    try await h.store.update(unit)
+    await h.uploader.setCaptions([])
+    _ = try await h.engine.reconcileWithChannel()
+
+    let report = await h.engine.runOnce(SyncRequest(trigger: .manual))
+
+    #expect(report.uploaded == 0)
+    #expect(await h.library.exports.isEmpty)
+}
+
+@Test func reconcileLeavesRecentUploadsAlone() async throws {
+    let h = Harness()
+    await h.addPhotos(["a"])
+    _ = try await h.engine.discover(settings: SyncSettings())
+    var unit = try await h.unit("a|primary")
+    unit.status = .done
+    unit.uploadedAt = start.addingTimeInterval(-60)
+    try await h.store.update(unit)
+    await h.uploader.setCaptions([])
+
+    let result = try await h.engine.reconcileWithChannel()
+
+    #expect(result.removed == 0)
+    #expect(try await h.unit("a|primary").status == .done)
+}
+
+@Test func removedItemsBecomeDoneAgainWhenTheyReturnToTheChannel() async throws {
+    let h = Harness()
+    await h.addPhotos(["a"])
+    _ = try await h.engine.discover(settings: SyncSettings())
+    var unit = try await h.unit("a|primary")
+    unit.status = .done
+    unit.uploadedAt = start.addingTimeInterval(-86_400)
+    try await h.store.update(unit)
+    await h.uploader.setCaptions([])
+    _ = try await h.engine.reconcileWithChannel()
+    #expect(try await h.unit("a|primary").status == .skipped)
+
+    await h.uploader.setCaptions([caption(for: "a")])
+    let result = try await h.engine.reconcileWithChannel()
+
+    #expect(result == ChannelCheckResult(markedDone: 1, removed: 0))
+    let restored = try await h.unit("a|primary")
+    #expect(restored.status == .done)
+    #expect(restored.skipReason == nil)
+}
+
+@Test func reconcileChangesNothingIfReadingTheChannelFails() async throws {
+    let h = Harness()
+    await h.addPhotos(["a"])
+    _ = try await h.engine.discover(settings: SyncSettings())
+    var unit = try await h.unit("a|primary")
+    unit.status = .done
+    unit.uploadedAt = start.addingTimeInterval(-86_400)
+    try await h.store.update(unit)
+    await h.uploader.setCaptionsError(UploadError(kind: .transient, message: "offline"))
+
+    await #expect(throws: UploadError.self) { _ = try await h.engine.reconcileWithChannel() }
+
+    #expect(try await h.unit("a|primary").status == .done)
+}
+
 @Test func retryFailedResetsOnlyFailedUnits() async throws {
     let h = Harness()
     try await h.store.insert([

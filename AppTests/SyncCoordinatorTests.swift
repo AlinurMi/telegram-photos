@@ -283,6 +283,36 @@ final class SyncCoordinatorTests: XCTestCase {
         XCTAssertEqual(finished, [.appLaunch])
     }
 
+    func testLaunchSyncChecksTheChannelOnceUntilDue() async throws {
+        let fixture = try makeFixture()
+        try await fixture.coordinator.finishSetup()
+        XCTAssertNil(fixture.settings.lastChannelCheckAt)
+
+        await fixture.coordinator.syncOnLaunch()
+        let firstCheck = try XCTUnwrap(fixture.settings.lastChannelCheckAt)
+
+        await fixture.coordinator.syncOnLaunch()
+        XCTAssertEqual(fixture.settings.lastChannelCheckAt, firstCheck)
+    }
+
+    func testRebuildMarksUploadsMissingFromTheChannelAsRemoved() async throws {
+        let fixture = try makeFixture()
+        try await fixture.store.insert([
+            UploadUnit(
+                id: "A|primary", assetLocalIdentifier: "A", assetTag: "a0123456789", role: .primary,
+                resourceKind: .photo, uploadFilename: "A.HEIC", status: .done,
+                uploadedAt: Date(timeIntervalSince1970: 1_000_000))
+        ])
+
+        let result = try await fixture.coordinator.rebuild()
+
+        XCTAssertEqual(result, ChannelCheckResult(markedDone: 0, removed: 1))
+        let counts = try await fixture.store.counts()
+        XCTAssertEqual(counts.done, 0)
+        XCTAssertEqual(counts.skipped, 1)
+        XCTAssertNotNil(fixture.settings.lastChannelCheckAt)
+    }
+
     func testRefreshStateLoadsCountsAndLastSyncTime() async throws {
         let fixture = try makeFixture()
         let unit = UploadUnit(

@@ -21,6 +21,19 @@ public struct SyncRequest: Sendable {
     }
 }
 
+/// What `reconcileWithChannel` changed.
+public struct ChannelCheckResult: Equatable, Sendable {
+    /// Items found in the channel that were not marked uploaded yet.
+    public var markedDone: Int
+    /// Items marked uploaded whose message is no longer in the channel.
+    public var removed: Int
+
+    public init(markedDone: Int = 0, removed: Int = 0) {
+        self.markedDone = markedDone
+        self.removed = removed
+    }
+}
+
 /// Finds new photos and videos and uploads them to Telegram.
 public actor SyncEngine {
     let library: PhotoLibrary
@@ -117,26 +130,55 @@ public actor SyncEngine {
     /// Marks every unit whose caption is found in the channel as `done` (without a message id); returns how many changed.
     /// The channel is read completely before anything is changed, so a failure leaves the state untouched.
     public func rebuildFromChannel(settings: SyncSettings = SyncSettings()) async throws -> Int {
+        try await reconcileWithChannel(settings: settings, removeMissing: false).markedDone
+    }
+
+    /// Makes the stored state match the channel: units found there become `done`, and `done` units whose
+    /// message is gone become `skipped` (`removedFromChannel`), so the counts show what is really backed up.
+    /// Removed items are not uploaded again. Uploads from the last few minutes are left alone in case the
+    /// channel search hasn't caught up. The channel is read completely before anything is changed.
+    public func reconcileWithChannel(settings: SyncSettings = SyncSettings()) async throws -> ChannelCheckResult {
+        try await reconcileWithChannel(settings: settings, removeMissing: true)
+    }
+
+    private func reconcileWithChannel(settings: SyncSettings, removeMissing: Bool) async throws -> ChannelCheckResult {
         _ = try await discover(settings: settings)
-        var uploaded: Set<ChannelEntry> = []
+        var inChannel: Set<ChannelEntry> = []
         for try await caption in uploader.allDocumentCaptions() {
             if let parsed = ChannelIndexParser.parse(caption: caption) {
-                uploaded.insert(ChannelEntry(assetTag: parsed.assetTag, role: parsed.role))
+                inChannel.insert(ChannelEntry(assetTag: parsed.assetTag, role: parsed.role))
             }
         }
 
-        var changed = 0
-        for var unit in try await store.allUnits() where unit.status != .done {
-            guard uploaded.contains(ChannelEntry(assetTag: unit.assetTag, role: unit.role)) else { continue }
-            unit.status = .done
-            unit.skipReason = nil
-            unit.lastError = nil
-            unit.nextAttemptAt = nil
+        let now = clock.now()
+        var result = ChannelCheckResult()
+        for var unit in try await store.allUnits() {
+            let present = inChannel.contains(ChannelEntry(assetTag: unit.assetTag, role: unit.role))
+            if present, unit.status != .done {
+                unit.status = .done
+                unit.skipReason = nil
+                unit.lastError = nil
+                unit.nextAttemptAt = nil
+                result.markedDone += 1
+            } else if removeMissing, !present, unit.status == .done, !isRecentUpload(unit, now: now) {
+                unit.status = .skipped
+                unit.skipReason = .removedFromChannel
+                result.removed += 1
+            } else {
+                continue
+            }
             try await store.update(unit)
-            changed += 1
         }
-        return changed
+        return result
     }
+
+    private func isRecentUpload(_ unit: UploadUnit, now: Date) -> Bool {
+        guard let uploadedAt = unit.uploadedAt else { return false }
+        return now.timeIntervalSince(uploadedAt) < Self.channelSearchLag
+    }
+
+    /// Uploads newer than this aren't judged against the channel yet.
+    private static let channelSearchLag: TimeInterval = 600
 
     /// Puts every `failed` unit back to `pending` with a fresh retry budget; returns how many were reset.
     public func retryFailed() async throws -> Int {

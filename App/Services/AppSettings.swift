@@ -13,6 +13,7 @@ final class AppSettings: @unchecked Sendable {
     static let intentBudgetSecondsKey = "intentBudgetSeconds"
     static let defaultIntentBudgetSeconds: TimeInterval = 25
     static let authLostNotifiedAtKey = "authLostNotifiedAt"
+    static let lastChannelCheckAtKey = "lastChannelCheckAt"
 
     private let defaults: UserDefaults
 
@@ -49,6 +50,12 @@ final class AppSettings: @unchecked Sendable {
     var authLostNotifiedAt: Date? {
         get { defaults.object(forKey: Self.authLostNotifiedAtKey) as? Date }
         set { defaults.set(newValue, forKey: Self.authLostNotifiedAtKey) }
+    }
+
+    /// When the app last compared its records with the backup chat.
+    var lastChannelCheckAt: Date? {
+        get { defaults.object(forKey: Self.lastChannelCheckAtKey) as? Date }
+        set { defaults.set(newValue, forKey: Self.lastChannelCheckAtKey) }
     }
 
     /// The chat the backup goes to, if one was chosen.

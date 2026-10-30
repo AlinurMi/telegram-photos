@@ -147,8 +147,8 @@ struct SettingsView: View {
             do {
                 switch action {
                 case .rebuild:
-                    let count = try await coordinator.rebuild()
-                    resultText = SettingsText.rebuilt(count)
+                    let result = try await coordinator.rebuild()
+                    resultText = SettingsText.rebuilt(result)
                 case .retryFailed:
                     let count = try await coordinator.retryFailed()
                     resultText = SettingsText.retried(count)
@@ -205,7 +205,8 @@ enum MaintenanceAction: String {
     var explanation: String {
         switch self {
         case .rebuild:
-            return "Reads the backup chat and marks every photo already there as uploaded. Useful after reinstalling."
+            return
+                "Reads the backup chat and updates the app to match it: photos already there count as uploaded, and ones you deleted from it stop counting. Nothing is uploaded or deleted."
         case .retryFailed:
             return "Failed items will be tried again on the next sync."
         case .logOut:
@@ -227,8 +228,11 @@ enum MaintenanceAction: String {
 
 /// Result and error lines for the Advanced actions. Kept apart from the view so they can be tested.
 enum SettingsText {
-    static func rebuilt(_ count: Int) -> String {
-        "Marked \(items(count)) as already uploaded"
+    static func rebuilt(_ result: ChannelCheckResult) -> String {
+        var parts: [String] = []
+        if result.markedDone > 0 { parts.append("Marked \(items(result.markedDone)) as already uploaded") }
+        if result.removed > 0 { parts.append("\(items(result.removed)) no longer in the channel") }
+        return parts.isEmpty ? "Already matches the channel" : parts.joined(separator: ". ")
     }
 
     static func retried(_ count: Int) -> String {
