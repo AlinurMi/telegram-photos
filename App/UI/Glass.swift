@@ -1,17 +1,10 @@
 import SwiftUI
 
-/// A faint accent glow at the top that fades into the system background.
+/// The plain system background.
 struct SoftBackdrop: View {
     var body: some View {
-        ZStack {
-            Color(.systemBackground)
-            LinearGradient(
-                colors: [Color.accentColor.opacity(0.18), .clear],
-                startPoint: .top,
-                endPoint: UnitPoint(x: 0.5, y: 0.55)
-            )
-        }
-        .ignoresSafeArea()
+        Color(.systemBackground)
+            .ignoresSafeArea()
     }
 }
 
