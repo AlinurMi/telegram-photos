@@ -5,15 +5,17 @@ import UIKit
 
 /// The Shortcuts action the owner's automations run. Syncs in the background within a time budget.
 ///
-/// It's a `LiveActivityIntent`, so it may start the Live Activity without opening the app.
+/// It's a `LiveActivityIntent`, so it may start the Live Activity without opening the app. It shows no dialog,
+/// so an automation that finds nothing to do stays invisible; the summary is returned as a value for shortcuts
+/// that want to show it.
 struct SyncPhotosIntent: AppIntent, LiveActivityIntent {
     static let title: LocalizedStringResource = "Sync Photos"
     static let description: IntentDescription? = IntentDescription("Uploads new photos and videos to Telegram.")
     static let supportedModes: IntentModes = .background
 
-    func perform() async throws -> some IntentResult & ProvidesDialog {
+    func perform() async throws -> some IntentResult & ReturnsValue<String> {
         let report = await IntentSync.run()
-        return .result(dialog: IntentDialog(stringLiteral: SyncIntentDialog.text(for: report)))
+        return .result(value: SyncIntentDialog.text(for: report))
     }
 }
 
@@ -89,7 +91,7 @@ enum IntentHeartbeat {
     }
 }
 
-/// What the Shortcuts action says when it ends, e.g. "Uploaded 5, 12 waiting."
+/// The one-line summary the Shortcuts action returns, e.g. "Uploaded 5, 12 waiting."
 enum SyncIntentDialog {
     static func text(for report: SyncReport?) -> String {
         guard let report else { return "Already syncing." }
