@@ -107,6 +107,8 @@ final class TelegramService: ObservableObject {
     private let rootDirectory: URL?
     private let sendTracker = SendTracker()
     private var cachedMaxFileSize: Int64?
+    /// The destination chat TDLib is known to have loaded, for the client that loaded it.
+    private var loadedDestination: (client: ObjectIdentifier, chatId: Int64)?
     private var isResettingCredentials = false
     private var manager: TDLibClientManager?
     private var client: TDLibClient?
@@ -577,6 +579,7 @@ extension TelegramService: TelegramUploader {
             try Task.checkCancellation()
             let client = try readyClient()
             let chatId = try requireDestination()
+            try await loadDestination(chatId, client: client)
             let formatted = await formattedText(for: caption, client: client)
             let content = InputMessageContent.inputMessageDocument(
                 InputMessageDocument(
@@ -634,6 +637,7 @@ extension TelegramService: TelegramUploader {
         try await uploadCall {
             let client = try readyClient()
             let chatId = try requireDestination()
+            try await loadDestination(chatId, client: client)
             let found = try await client.searchChatMessages(
                 chatId: chatId,
                 filter: .searchMessagesFilterDocument,
@@ -682,6 +686,7 @@ extension TelegramService: TelegramUploader {
             try Task.checkCancellation()
             let client = try readyClient()
             let chatId = try requireDestination()
+            try await loadDestination(chatId, client: client)
             let found = try await client.searchChatMessages(
                 chatId: chatId,
                 filter: .searchMessagesFilterDocument,
@@ -742,6 +747,28 @@ extension TelegramService: TelegramUploader {
             throw UploadError(kind: .transient, message: "noDestination")
         }
         return chatId
+    }
+
+    /// After a restart TDLib doesn't know the destination chat until the chat list is loaded, and every
+    /// send or search then fails with "Chat not found". Loads it once per client and destination.
+    private func loadDestination(_ chatId: Int64, client: TDLibClient) async throws {
+        let key = ObjectIdentifier(client)
+        if let loaded = loadedDestination, loaded.client == key, loaded.chatId == chatId { return }
+        do {
+            _ = try await client.getChat(chatId: chatId)
+        } catch let error as TDLibKit.Error where error.code == 400 || error.code == 404 {
+            logger.info("Loading the chat list to find the destination chat", category: "telegram")
+            for _ in 0..<10 {
+                do {
+                    _ = try await client.loadChats(chatList: .chatListMain, limit: 100)
+                } catch let error as TDLibKit.Error where error.code == 404 {
+                    break
+                }
+                if (try? await client.getChat(chatId: chatId)) != nil { break }
+            }
+            _ = try await client.getChat(chatId: chatId)
+        }
+        loadedDestination = (key, chatId)
     }
 
     /// Runs a Telegram call and turns every failure into an `UploadError` the engine can act on.
