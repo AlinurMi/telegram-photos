@@ -5,9 +5,15 @@ import XCTest
 
 final class SettingsTextTests: XCTestCase {
     func testRebuildResult() {
-        XCTAssertEqual(SettingsText.rebuilt(0), "Marked 0 items as already uploaded")
-        XCTAssertEqual(SettingsText.rebuilt(1), "Marked 1 item as already uploaded")
-        XCTAssertEqual(SettingsText.rebuilt(5), "Marked 5 items as already uploaded")
+        XCTAssertEqual(SettingsText.rebuilt(ChannelCheckResult()), "Already matches the channel")
+        XCTAssertEqual(
+            SettingsText.rebuilt(ChannelCheckResult(markedDone: 1)), "Marked 1 item as already uploaded")
+        XCTAssertEqual(
+            SettingsText.rebuilt(ChannelCheckResult(markedDone: 5)), "Marked 5 items as already uploaded")
+        XCTAssertEqual(SettingsText.rebuilt(ChannelCheckResult(removed: 2)), "2 items no longer in the channel")
+        XCTAssertEqual(
+            SettingsText.rebuilt(ChannelCheckResult(markedDone: 3, removed: 1)),
+            "Marked 3 items as already uploaded. 1 item no longer in the channel")
     }
 
     func testRetryResult() {

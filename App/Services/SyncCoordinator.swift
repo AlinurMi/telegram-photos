@@ -53,6 +53,7 @@ final class SyncEventBus: SyncObserver, @unchecked Sendable {
 /// Wires the engine to the app: one sync at a time, state for the screens, and the maintenance actions.
 actor SyncCoordinator {
     private static let readyTimeout: TimeInterval = 30
+    private static let channelCheckInterval: TimeInterval = 12 * 3600
 
     private let engine: SyncEngine
     private let store: StateStore
@@ -168,6 +169,7 @@ actor SyncCoordinator {
         await refreshState(restoreReport: true)
         guard settings.setupCompleted else { return }
         _ = await sync(trigger: .appLaunch)
+        await reconcileIfDue()
     }
 
     /// Re-reads the counts and the last sync time into the model.
@@ -194,14 +196,32 @@ actor SyncCoordinator {
         logger.info("Returning to login", category: "setup")
     }
 
-    /// Marks everything already in the channel as done; returns how many units changed.
-    func rebuild() async throws -> Int {
+    /// Makes the sync state match the backup chat: photos already there count as uploaded, and ones deleted
+    /// from it stop counting. Nothing is uploaded or deleted. Returns what changed.
+    func rebuild() async throws -> ChannelCheckResult {
         try beginExclusive()
         defer { isBusy = false }
         try await readiness.waitUntilReady(timeout: Self.readyTimeout)
-        let changed = try await engine.rebuildFromChannel(settings: settings.syncSettings)
+        let result = try await engine.reconcileWithChannel(settings: settings.syncSettings)
+        settings.lastChannelCheckAt = clock.now()
         await refreshState()
-        return changed
+        return result
+    }
+
+    /// Runs the channel check if it hasn't run for a while, so the counts follow photos deleted from the chat.
+    /// Skipped quietly if a sync is running or Telegram isn't reachable; it tries again next launch.
+    func reconcileIfDue() async {
+        if let last = settings.lastChannelCheckAt, clock.now().timeIntervalSince(last) < Self.channelCheckInterval {
+            return
+        }
+        do {
+            let result = try await rebuild()
+            logger.info(
+                "Channel check: \(result.markedDone) marked uploaded, \(result.removed) no longer in the channel",
+                category: "sync")
+        } catch {
+            logger.info("Channel check skipped: \(type(of: error))", category: "sync")
+        }
     }
 
     /// Gives every failed unit a fresh retry budget; returns how many were reset.

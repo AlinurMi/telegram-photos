@@ -7,7 +7,11 @@ public enum UnitRole: String, Codable, Sendable, CaseIterable { case primary, ra
 public enum UnitStatus: String, Codable, Sendable { case pending, uploading, done, failed, skipped }
 
 /// Why an upload unit was skipped instead of uploaded.
-public enum SkipReason: String, Codable, Sendable { case notLocal, tooLarge, screenshotsDisabled, assetDeleted }
+public enum SkipReason: String, Codable, Sendable {
+    case notLocal, tooLarge, screenshotsDisabled, assetDeleted
+    /// An uploaded item whose message was later deleted from the channel. It isn't uploaded again.
+    case removedFromChannel
+}
 
 /// One file to upload to Telegram, with its sync state.
 public struct UploadUnit: Codable, Sendable, Equatable, Identifiable {
