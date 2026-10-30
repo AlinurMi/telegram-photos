@@ -13,7 +13,7 @@ A small personal iPhone app that backs up photos and videos from the Photos libr
   - **Sync Now**, with progress in the Dynamic Island and on the Lock Screen
   - **Shortcuts automations** that run the app's "Sync Photos" action
   - **Overnight** while the phone charges on Wi-Fi
-- Wi-Fi only by default. The one-time backfill of the existing library only runs while charging.
+- Wi-Fi only by default. The one-time backfill of the existing library runs automatically only while charging; tapping **Sync Now** uploads it right away.
 
 ## Requirements
 
